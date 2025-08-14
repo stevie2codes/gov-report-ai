@@ -9,6 +9,7 @@ import logging
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 import re
+from io import StringIO
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -140,9 +141,9 @@ class DataProcessor:
         
         try:
             if file_type.lower() == 'csv':
-                df = pd.read_csv(pd.StringIO(data_string))
+                df = pd.read_csv(StringIO(data_string))
             elif file_type.lower() in ['xlsx', 'xls']:
-                df = pd.read_excel(pd.StringIO(data_string))
+                df = pd.read_excel(StringIO(data_string))
             else:
                 raise ValueError(f"Unsupported file type: {file_type}")
             
