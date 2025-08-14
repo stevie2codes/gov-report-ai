@@ -180,13 +180,8 @@ IMPORTANT: Only use columns that exist in the available data. Respond with ONLY 
                         "content": prompt
                     }
                 ],
-                temperature=0.2,  # Lower temperature for more consistent, professional output
                 max_tokens=3000,  # Increased for more comprehensive reports
-                response_format={"type": "json_object"},
-                top_p=0.9,  # Focus on most relevant responses
-                frequency_penalty=0.1,  # Encourage diverse, creative solutions
-                presence_penalty=0.1,  # Encourage comprehensive coverage
-                seed=42  # Consistent results for similar inputs
+                response_format={"type": "json_object"}
             )
             
             return response.choices[0].message.content
