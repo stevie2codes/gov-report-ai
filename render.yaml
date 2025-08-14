@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: govreport-ai-backend
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python src/web_interface.py
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: PORT
+        value: 8000
+      - key: HOST
+        value: 0.0.0.0
+    healthCheckPath: /health
+    autoDeploy: true

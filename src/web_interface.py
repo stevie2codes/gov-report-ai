@@ -410,12 +410,14 @@ def register_routes(app, data_processor, ai_planner):
 
 
 if __name__ == '__main__':
-    # Create and run the app
-    app = create_app()
+    import os
+    port = int(os.environ.get('PORT', 5001))
+    host = os.environ.get('HOST', '127.0.0.1')
     
-    # Run the development server
+    # Production settings for Render
     app.run(
-        host='0.0.0.0',
-        port=int(os.getenv('PORT', 5000)),
-        debug=os.getenv('FLASK_ENV') == 'development'
+        host=host,
+        port=port,
+        debug=False,  # Always False in production
+        threaded=True
     )
