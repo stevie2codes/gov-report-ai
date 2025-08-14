@@ -94,17 +94,26 @@ def register_routes(app, data_processor, ai_planner):
                 
                 # Process the data with smart handling
                 try:
-                    data_processor = DataProcessor(max_sample_rows=1000, max_ai_tokens=15000)
-                    full_profile = data_processor.process_data_from_string(file_content, file_extension)
+                    logger.info(f"Starting data processing for file: {file.filename}")
+                    
+                    local_processor = DataProcessor(max_sample_rows=1000, max_ai_tokens=15000)
+                    logger.info("DataProcessor initialized successfully")
+                    
+                    full_profile = local_processor.process_data_from_string(file_content, file_extension)
+                    logger.info(f"Full profile created: {full_profile.total_rows} rows, {len(full_profile.columns)} columns")
                     
                     # Get AI-optimized profile and recommendations
-                    ai_profile, recommendations = data_processor.get_ai_planning_profile(full_profile)
+                    ai_profile, recommendations = local_processor.get_ai_planning_profile(full_profile)
+                    logger.info(f"AI profile created: {ai_profile.total_rows} rows, strategy: {recommendations.get('processing_strategy', 'unknown')}")
                     
                     # Store both profiles in session
                     session['csv_content'] = file_content
                     session['full_data_profile'] = full_profile.to_dict()
                     session['ai_data_profile'] = ai_profile.to_dict()
+                    session['data_profile'] = ai_profile.to_dict()  # Keep for backward compatibility
                     session['processing_recommendations'] = recommendations
+                    
+                    logger.info("All data stored in session successfully")
                     
                     # Log processing info
                     logger.info(f"File uploaded: {file.filename}, "
@@ -123,10 +132,11 @@ def register_routes(app, data_processor, ai_planner):
                     else:
                         flash(f'Dataset processed successfully ({full_profile.total_rows:,} rows).', 'success')
                     
+                    logger.info("Redirecting to plan_report page")
                     return redirect(url_for('plan_report'))
                     
                 except Exception as e:
-                    logger.error(f"Error processing file: {e}")
+                    logger.error(f"Error processing file: {e}", exc_info=True)
                     flash(f'Error processing file: {str(e)}', 'error')
                     return redirect(url_for('index'))
             
@@ -138,17 +148,24 @@ def register_routes(app, data_processor, ai_planner):
     @app.route('/plan-report')
     def plan_report():
         """Report planning interface."""
-        # Check if data is in session
-        if 'csv_content' not in session or 'data_profile' not in session:
-            flash('No data found. Please upload a file first.', 'error')
-            return redirect(url_for('index'))
-        
         try:
-            data_profile = session['data_profile']
+            logger.info("Plan report route accessed")
+            
+            # Check if data is in session
+            if 'csv_content' not in session or ('data_profile' not in session and 'ai_data_profile' not in session):
+                logger.warning("No data found in session for plan_report")
+                flash('No data found. Please upload a file first.', 'error')
+                return redirect(url_for('index'))
+            
+            # Use ai_data_profile if available, otherwise fall back to data_profile
+            data_profile = session.get('ai_data_profile') or session.get('data_profile')
             csv_content = session['csv_content']
+            
+            logger.info(f"Data profile loaded: {data_profile.get('total_rows', 'unknown')} rows, {len(data_profile.get('columns', []))} columns")
             
             # Get available templates
             templates = create_government_report_templates()
+            logger.info(f"Templates loaded: {len(templates)} available")
             
             return render_template('plan_report.html', 
                                 data_profile=data_profile,
@@ -157,7 +174,7 @@ def register_routes(app, data_processor, ai_planner):
                                 ai_available=ai_planner is not None)
         
         except Exception as e:
-            logger.error(f"Error in plan_report: {e}")
+            logger.error(f"Error in plan_report: {e}", exc_info=True)
             flash('Error loading data for planning', 'error')
             return redirect(url_for('index'))
     
