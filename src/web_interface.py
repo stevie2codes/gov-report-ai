@@ -12,6 +12,7 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for, f
 from flask_cors import CORS
 from dotenv import load_dotenv
 import base64
+import numpy as np
 
 # Load environment variables
 load_dotenv()
@@ -19,6 +20,21 @@ load_dotenv()
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+def ensure_json_serializable(obj):
+    """Convert numpy types and other non-JSON-serializable objects to standard Python types."""
+    if isinstance(obj, dict):
+        return {key: ensure_json_serializable(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [ensure_json_serializable(item) for item in obj]
+    elif isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    else:
+        return obj
 
 # Try relative imports first, fall back to absolute for standalone testing
 try:
@@ -108,10 +124,10 @@ def register_routes(app, data_processor, ai_planner):
                     
                     # Store both profiles in session
                     session['csv_content'] = file_content
-                    session['full_data_profile'] = full_profile.to_dict()
-                    session['ai_data_profile'] = ai_profile.to_dict()
-                    session['data_profile'] = ai_profile.to_dict()  # Keep for backward compatibility
-                    session['processing_recommendations'] = recommendations
+                    session['full_data_profile'] = ensure_json_serializable(full_profile.to_dict())
+                    session['ai_data_profile'] = ensure_json_serializable(ai_profile.to_dict())
+                    session['data_profile'] = ensure_json_serializable(ai_profile.to_dict())  # Keep for backward compatibility
+                    session['processing_recommendations'] = ensure_json_serializable(recommendations)
                     
                     logger.info("All data stored in session successfully")
                     
@@ -214,12 +230,12 @@ def register_routes(app, data_processor, ai_planner):
                 report_spec = planner.plan_report(user_description, ai_data_profile, template_hint)
                 
                 # Store the report specification in session for preview
-                session['report_spec'] = report_spec.to_dict()
+                session['report_spec'] = ensure_json_serializable(report_spec.to_dict())
                 
                 response_data = {
                     'success': True,
-                    'report_spec': report_spec.to_dict(),
-                    'data_profile': ai_data_profile.to_dict(),
+                    'report_spec': ensure_json_serializable(report_spec.to_dict()),
+                    'data_profile': ensure_json_serializable(ai_data_profile.to_dict()),
                     'full_data_info': {
                         'total_rows': full_data_profile.total_rows,
                         'file_size_mb': full_data_profile.file_size_mb,
@@ -250,12 +266,12 @@ def register_routes(app, data_processor, ai_planner):
                     )
                     
                     # Store the report specification in session for preview
-                    session['report_spec'] = report_spec.to_dict()
+                    session['report_spec'] = ensure_json_serializable(report_spec.to_dict())
                     
                     response_data = {
                         'success': True,
-                        'report_spec': report_spec.to_dict(),
-                        'data_profile': ai_data_profile.to_dict(),
+                        'report_spec': ensure_json_serializable(report_spec.to_dict()),
+                        'data_profile': ensure_json_serializable(ai_data_profile.to_dict()),
                         'full_data_info': {
                             'total_rows': DataProfile.from_dict(session['full_data_profile']).total_rows,
                             'file_size_mb': DataProfile.from_dict(session['full_data_profile']).file_size_mb,

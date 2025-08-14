@@ -28,12 +28,13 @@ class ColumnProfile:
         self.unique_count = unique_count
     
     def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary representation with JSON-serializable types."""
         return {
             'name': self.name,
             'type': self.type,
             'sample_values': self.sample_values,
-            'null_count': self.null_count,
-            'unique_count': self.unique_count
+            'null_count': int(self.null_count),  # Convert numpy types to Python types
+            'unique_count': int(self.unique_count)
         }
 
 class DataProfile:
@@ -47,11 +48,12 @@ class DataProfile:
         self.processing_time = processing_time
     
     def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary representation with JSON-serializable types."""
         return {
             'columns': [col.to_dict() for col in self.columns],
-            'total_rows': self.total_rows,
-            'file_size_mb': self.file_size_mb,
-            'processing_time': self.processing_time
+            'total_rows': int(self.total_rows),  # Convert numpy types to Python types
+            'file_size_mb': float(self.file_size_mb),
+            'processing_time': float(self.processing_time)
         }
     
     @classmethod
