@@ -61,6 +61,44 @@
         </div>
     </div>
 
+    <!-- Data Information Panel -->
+    <div id="dataInfoPanel" class="card mt-8">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-semibold gov-primary">
+                <i class="fas fa-info-circle mr-2"></i>Dataset Processing Info
+            </h2>
+            <button onclick="toggleDataInfo()" class="text-blue-600 hover:text-blue-800">
+                <i class="fas fa-chevron-up" id="toggleIcon"></i>
+            </button>
+        </div>
+        <div id="dataInfoContent" class="space-y-4">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div class="bg-blue-50 p-3 rounded">
+                    <span class="font-medium text-blue-700 block">Total Rows:</span>
+                    <span id="totalRows" class="text-blue-800 text-lg font-bold"></span>
+                </div>
+                <div class="bg-green-50 p-3 rounded">
+                    <span class="font-medium text-green-700 block">File Size:</span>
+                    <span id="fileSize" class="text-green-800 text-lg font-bold"></span>
+                </div>
+                <div class="bg-purple-50 p-3 rounded">
+                    <span class="font-medium text-purple-700 block">AI Sample:</span>
+                    <span id="aiSample" class="text-purple-800 text-lg font-bold"></span>
+                </div>
+                <div class="bg-orange-50 p-3 rounded">
+                    <span class="font-medium text-orange-700 block">Strategy:</span>
+                    <span id="processingStrategy" class="text-orange-800 text-lg font-bold"></span>
+                </div>
+            </div>
+            <div class="bg-blue-100 rounded p-3">
+                <p class="text-blue-800 text-sm">
+                    <i class="fas fa-lightbulb mr-2"></i>
+                    <span id="strategyExplanation"></span>
+                </p>
+            </div>
+        </div>
+    </div>
+
     <!-- Report Suggestions Section -->
     <div class="card mt-8">
         <h2 class="text-xl font-semibold gov-primary mb-4">
@@ -98,20 +136,14 @@
             
             <div>
                 <label for="template_hint" class="form-label">Template Hint (Optional)</label>
-                <select id="template_hint" name="template_hint" class="form-input">
-                    <option value="">No specific template</option>
-                    {% for template_name, template in templates.items() %}
-                    <option value="{{ template_name }}">{{ template.title }}</option>
-                    {% endfor %}
-                </select>
-                <p class="text-sm text-gray-500 mt-1">Choose a template to guide the AI planning</p>
+                <input type="text" id="template_hint" name="template_hint" class="form-input"
+                    placeholder="e.g., budget_performance, financial_summary, trend_analysis">
+                <p class="text-sm text-gray-500 mt-1">Suggest a template type to guide the AI</p>
             </div>
             
-            <div class="pt-4">
-                <button type="submit" id="planButton" class="btn-primary w-full">
-                    <i class="fas fa-brain mr-2"></i>Generate Report Plan
-                </button>
-            </div>
+            <button type="submit" class="btn-primary w-full">
+                <i class="fas fa-magic mr-2"></i>Generate Report Plan
+            </button>
         </form>
         
         <!-- AI Status Indicator -->
@@ -172,22 +204,24 @@
     const csvData = `{{ csv_content | safe }}`;
     const dataProfile = {{ data_profile | tojson }};
 
-    document.getElementById('planningForm').addEventListener('submit', async function (e) {
+    // Form submission
+    document.getElementById('planningForm').addEventListener('submit', async function(e) {
         e.preventDefault();
-
-        const formData = new FormData(this);
-        const userDescription = formData.get('user_description');
-        const templateHint = formData.get('template_hint');
-
-        if (!userDescription.trim()) {
-            showAlert('Please describe what kind of report you need', 'error');
+        
+        const userDescription = document.getElementById('user_description').value.trim();
+        const templateHint = document.getElementById('template_hint').value.trim();
+        
+        if (!userDescription) {
+            showAlert('Please describe what you want in your report', 'error');
             return;
         }
-
-        // Show loading
-        document.getElementById('loadingOverlay').classList.remove('hidden');
-        document.getElementById('planButton').disabled = true;
-
+        
+        // Show loading state
+        const submitButton = this.querySelector('button[type="submit"]');
+        const originalText = submitButton.innerHTML;
+        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Generating...';
+        submitButton.disabled = true;
+        
         try {
             const response = await fetch('/api/plan-report', {
                 method: 'POST',
@@ -195,30 +229,36 @@
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    user_description: userDescription,
-                    template_hint: templateHint
+                    description: userDescription,
+                    template: templateHint
                 })
             });
-
+            
             const result = await response.json();
-
+            
             if (result.success) {
-                // Store the report specification globally for preview
+                // Store the report specification
                 window.currentReportSpec = result.report_spec;
                 
-                displayResults(result);
+                // Display the results
+                displayResults(result.report_spec, result.data_profile);
+                
+                // Update data info panel with enhanced information
+                if (result.full_data_info) {
+                    updateDataInfoPanel(result.full_data_info);
+                }
+                
                 showAlert('Report plan generated successfully!', 'success');
             } else {
                 showAlert(result.error || 'Failed to generate report plan', 'error');
             }
-
         } catch (error) {
             console.error('Error:', error);
             showAlert('An error occurred while generating the report plan', 'error');
         } finally {
-            // Hide loading
-            document.getElementById('loadingOverlay').classList.add('hidden');
-            document.getElementById('planButton').disabled = false;
+            // Restore button state
+            submitButton.innerHTML = originalText;
+            submitButton.disabled = false;
         }
     });
 
@@ -404,7 +444,7 @@
         showAlert(`Using "${reportName}" as your report type. Feel free to modify the description below.`, 'success');
     }
 
-    function displayResults(result) {
+    function displayResults(result, dataProfile) {
         const resultsSection = document.getElementById('resultsSection');
         const resultsContent = document.getElementById('resultsContent');
 
@@ -549,6 +589,43 @@
         if (!previewWindow) {
             showAlert('Please allow popups to view the report preview', 'error');
         }
+    }
+
+    function toggleDataInfo() {
+        const content = document.getElementById('dataInfoContent');
+        const icon = document.getElementById('toggleIcon');
+        
+        if (content.style.display === 'none') {
+            content.style.display = 'block';
+            icon.className = 'fas fa-chevron-up';
+        } else {
+            content.style.display = 'none';
+            icon.className = 'fas fa-chevron-down';
+        }
+    }
+
+    function updateDataInfoPanel(dataInfo) {
+        if (!dataInfo) return;
+        
+        // Update the data info panel
+        document.getElementById('totalRows').textContent = dataInfo.total_rows?.toLocaleString() || 'N/A';
+        document.getElementById('fileSize').textContent = dataInfo.file_size_mb ? `${dataInfo.file_size_mb.toFixed(2)} MB` : 'N/A';
+        document.getElementById('aiSample').textContent = dataInfo.ai_sample_rows?.toLocaleString() || 'N/A';
+        document.getElementById('processingStrategy').textContent = dataInfo.processing_strategy || 'standard';
+        
+        // Update strategy explanation
+        let explanation = '';
+        if (dataInfo.total_rows > 10000) {
+            explanation = 'Large dataset detected. Using intelligent sampling for AI planning to reduce token usage while maintaining accuracy. Full dataset available for processing.';
+        } else if (dataInfo.total_rows > 5000) {
+            explanation = 'Medium dataset detected. Optimized sampling strategy for efficient AI planning and cost control.';
+        } else {
+            explanation = 'Standard processing. Full dataset used for AI planning with minimal token usage.';
+        }
+        document.getElementById('strategyExplanation').textContent = explanation;
+        
+        // Show the panel
+        document.getElementById('dataInfoPanel').classList.remove('hidden');
     }
 </script>
 {% endblock %}

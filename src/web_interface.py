@@ -74,40 +74,65 @@ def register_routes(app, data_processor, ai_planner):
     
     @app.route('/upload', methods=['POST'])
     def upload_file():
-        """Handle file upload and processing."""
+        """Handle file upload and redirect to planning page."""
         try:
             if 'file' not in request.files:
-                flash('No file part', 'error')
+                flash('No file selected', 'error')
                 return redirect(url_for('index'))
             
             file = request.files['file']
-            
             if file.filename == '':
                 flash('No file selected', 'error')
                 return redirect(url_for('index'))
             
             if file:
                 # Read file content
-                content = file.read().decode('utf-8')
+                file_content = file.read().decode('utf-8')
                 
-                # Process the data
+                # Determine file type
+                file_extension = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else 'csv'
+                
+                # Process the data with smart handling
                 try:
-                    data_profile = data_processor.process_data_from_string(content, 'csv')
+                    data_processor = DataProcessor(max_sample_rows=1000, max_ai_tokens=15000)
+                    full_profile = data_processor.process_data_from_string(file_content, file_extension)
                     
-                    # Store in Flask session (not URL parameters)
-                    session['csv_content'] = content
-                    session['data_profile'] = data_profile.to_dict()
+                    # Get AI-optimized profile and recommendations
+                    ai_profile, recommendations = data_processor.get_ai_planning_profile(full_profile)
                     
-                    flash(f'File processed successfully! Found {data_profile.column_count} columns with {data_profile.row_count} rows.', 'success')
+                    # Store both profiles in session
+                    session['csv_content'] = file_content
+                    session['full_data_profile'] = full_profile.to_dict()
+                    session['ai_data_profile'] = ai_profile.to_dict()
+                    session['processing_recommendations'] = recommendations
+                    
+                    # Log processing info
+                    logger.info(f"File uploaded: {file.filename}, "
+                               f"Size: {full_profile.file_size_mb:.2f}MB, "
+                               f"Rows: {full_profile.total_rows}, "
+                               f"AI sample: {ai_profile.total_rows}, "
+                               f"Estimated tokens: {recommendations['estimated_ai_tokens']}")
+                    
+                    # Show appropriate message based on data size
+                    if full_profile.total_rows > 10000:
+                        flash(f'Large dataset detected ({full_profile.total_rows:,} rows). '
+                              f'Using AI-optimized sample for planning. Full data available for processing.', 'info')
+                    elif full_profile.total_rows > 5000:
+                        flash(f'Medium dataset detected ({full_profile.total_rows:,} rows). '
+                              f'AI planning optimized for efficiency.', 'info')
+                    else:
+                        flash(f'Dataset processed successfully ({full_profile.total_rows:,} rows).', 'success')
+                    
                     return redirect(url_for('plan_report'))
                     
                 except Exception as e:
+                    logger.error(f"Error processing file: {e}")
                     flash(f'Error processing file: {str(e)}', 'error')
                     return redirect(url_for('index'))
-        
+            
         except Exception as e:
-            logger.error(f"Upload error: {e}")
-            flash('An error occurred during file upload', 'error')
+            logger.error(f"Unexpected error in upload: {e}")
+            flash('An unexpected error occurred during upload', 'error')
             return redirect(url_for('index'))
     
     @app.route('/plan-report')
@@ -141,77 +166,96 @@ def register_routes(app, data_processor, ai_planner):
         """API endpoint for AI report planning."""
         try:
             # Check if data is in session
-            if 'csv_content' not in session or 'data_profile' not in session:
+            if 'csv_content' not in session or 'ai_data_profile' not in session:
                 return jsonify({'error': 'No data found in session. Please upload a file first.'}), 400
             
             data = request.get_json()
             if not data:
                 return jsonify({'error': 'No JSON data provided'}), 400
             
-            user_description = data.get('user_description')
-            template_hint = data.get('template_hint')
+            user_description = data.get('description', '')
+            template_hint = data.get('template', '')
             
             if not user_description:
-                return jsonify({'error': 'Missing user description'}), 400
+                return jsonify({'error': 'No description provided'}), 400
             
-            # Get data from session
-            csv_content = session['csv_content']
-            data_profile_dict = session['data_profile']
-            
-            # Convert back to DataProfile object
-            data_profile = DataProfile.from_dict(data_profile_dict)
-            
-            # Generate AI plan
-            if ai_planner:
-                try:
-                    report_spec = ai_planner.plan_report(
-                        user_description=user_description,
-                        data_profile=data_profile,
-                        template_hint=template_hint
-                    )
-                    
-                    response_data = {
-                        'success': True,
-                        'report_spec': report_spec.to_dict(),
-                        'data_profile': data_profile_dict,
-                        'message': 'Report plan generated successfully using AI',
-                        'ai_generated': True
-                    }
-                    
-                    # Store the report specification in session for preview
-                    session['report_spec'] = report_spec.to_dict()
-                    
-                    return jsonify(response_data), 200
-                    
-                except Exception as e:
-                    logger.error(f"AI planning error: {e}")
-                    # Fall back to template-based planning
-                    pass
-            
-            # Fallback to template-based planning
             try:
-                fallback_planner = AIReportPlanner.__new__(AIReportPlanner)
-                report_spec = fallback_planner._generate_fallback_report(
-                    data_profile, user_description, template_hint
-                )
+                # Use AI-optimized profile for planning (reduces token usage)
+                ai_data_profile = DataProfile.from_dict(session['ai_data_profile'])
+                full_data_profile = DataProfile.from_dict(session['full_data_profile'])
+                recommendations = session.get('processing_recommendations', {})
                 
-                response_data = {
-                    'success': True,
-                    'report_spec': report_spec.to_dict(),
-                    'data_profile': data_profile_dict,
-                    'message': 'Report plan generated using template-based planning',
-                    'ai_generated': False
-                }
+                # Log planning attempt with token estimates
+                logger.info(f"AI planning requested for {full_data_profile.total_rows} rows, "
+                           f"using {ai_data_profile.total_rows} row sample, "
+                           f"estimated tokens: {recommendations.get('estimated_ai_tokens', 0)}")
+                
+                # Initialize AI planner
+                planner = AIReportPlanner()
+                
+                # Plan the report using AI-optimized profile
+                report_spec = planner.plan_report(user_description, ai_data_profile, template_hint)
                 
                 # Store the report specification in session for preview
                 session['report_spec'] = report_spec.to_dict()
                 
+                response_data = {
+                    'success': True,
+                    'report_spec': report_spec.to_dict(),
+                    'data_profile': ai_data_profile.to_dict(),
+                    'full_data_info': {
+                        'total_rows': full_data_profile.total_rows,
+                        'file_size_mb': full_data_profile.file_size_mb,
+                        'ai_sample_rows': ai_data_profile.total_rows,
+                        'estimated_tokens': recommendations.get('estimated_ai_tokens', 0),
+                        'processing_strategy': recommendations.get('processing_strategy', 'standard')
+                    },
+                    'message': 'Report plan generated successfully using AI',
+                    'ai_generated': True
+                }
+                
                 return jsonify(response_data), 200
                 
             except Exception as e:
-                logger.error(f"Fallback planning error: {e}")
-                return jsonify({'error': f'Planning failed: {str(e)}'}), 500
-        
+                logger.error(f"Error in AI planning: {e}")
+                
+                # Try fallback planning
+                try:
+                    logger.info("Generating fallback report specification...")
+                    
+                    # Use the AI-optimized profile for fallback as well
+                    ai_data_profile = DataProfile.from_dict(session['ai_data_profile'])
+                    
+                    # Generate fallback report
+                    fallback_planner = AIReportPlanner.__new__(AIReportPlanner)
+                    report_spec = fallback_planner._generate_fallback_report(
+                        ai_data_profile, user_description, template_hint
+                    )
+                    
+                    # Store the report specification in session for preview
+                    session['report_spec'] = report_spec.to_dict()
+                    
+                    response_data = {
+                        'success': True,
+                        'report_spec': report_spec.to_dict(),
+                        'data_profile': ai_data_profile.to_dict(),
+                        'full_data_info': {
+                            'total_rows': DataProfile.from_dict(session['full_data_profile']).total_rows,
+                            'file_size_mb': DataProfile.from_dict(session['full_data_profile']).file_size_mb,
+                            'ai_sample_rows': ai_data_profile.total_rows,
+                            'estimated_tokens': session.get('processing_recommendations', {}).get('estimated_ai_tokens', 0),
+                            'processing_strategy': session.get('processing_recommendations', {}).get('processing_strategy', 'standard')
+                        },
+                        'message': 'Report plan generated using template-based planning',
+                        'ai_generated': False
+                    }
+                    
+                    return jsonify(response_data), 200
+                    
+                except Exception as e:
+                    logger.error(f"Fallback planning error: {e}")
+                    return jsonify({'error': f'Planning failed: {str(e)}'}), 500
+            
         except Exception as e:
             logger.error(f"Unexpected error in api_plan_report: {e}")
             return jsonify({'error': 'Internal server error'}), 500
