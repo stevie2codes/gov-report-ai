@@ -191,7 +191,7 @@ def register_routes(app, data_processor, ai_planner):
             # Fallback to template-based planning
             try:
                 fallback_planner = AIReportPlanner.__new__(AIReportPlanner)
-                report_spec = fallback_planner._generate_fallback_spec(
+                report_spec = fallback_planner._generate_fallback_report(
                     user_description, data_profile, template_hint
                 )
                 

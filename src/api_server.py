@@ -157,7 +157,7 @@ def plan_report_fallback():
         try:
             # Use the fallback method from AI planner
             fallback_planner = AIReportPlanner.__new__(AIReportPlanner)
-            report_spec = fallback_planner._generate_fallback_spec(
+            report_spec = fallback_planner._generate_fallback_report(
                 user_description, data_profile, template_hint
             )
             
