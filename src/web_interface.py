@@ -8,7 +8,7 @@ import os
 import json
 import logging
 from typing import Dict, Any, Optional
-from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, session
 from flask_cors import CORS
 from dotenv import load_dotenv
 import base64
@@ -22,11 +22,11 @@ logger = logging.getLogger(__name__)
 
 # Try relative imports first, fall back to absolute for standalone testing
 try:
-    from .data_processor import DataProcessor, create_sample_data_profile
+    from .data_processor import DataProcessor, create_sample_data_profile, DataProfile
     from .ai_planner import AIReportPlanner
     from .report_spec import create_government_report_templates
 except ImportError:
-    from data_processor import DataProcessor, create_sample_data_profile
+    from data_processor import DataProcessor, create_sample_data_profile, DataProfile
     from ai_planner import AIReportPlanner
     from report_spec import create_government_report_templates
 
@@ -70,13 +70,14 @@ def register_routes(app, data_processor, ai_planner):
     
     @app.route('/upload', methods=['POST'])
     def upload_file():
-        """Handle file upload and data processing."""
+        """Handle file upload and processing."""
         try:
             if 'file' not in request.files:
-                flash('No file selected', 'error')
+                flash('No file part', 'error')
                 return redirect(url_for('index'))
             
             file = request.files['file']
+            
             if file.filename == '':
                 flash('No file selected', 'error')
                 return redirect(url_for('index'))
@@ -89,17 +90,12 @@ def register_routes(app, data_processor, ai_planner):
                 try:
                     data_profile = data_processor.process_data_from_string(content, 'csv')
                     
-                    # Store in session for next step
-                    session_data = {
-                        'csv_content': content,
-                        'data_profile': data_profile.to_dict()
-                    }
-                    
-                    # Encode for session storage
-                    session_data_encoded = base64.b64encode(json.dumps(session_data).encode()).decode()
+                    # Store in Flask session (not URL parameters)
+                    session['csv_content'] = content
+                    session['data_profile'] = data_profile.to_dict()
                     
                     flash(f'File processed successfully! Found {data_profile.column_count} columns with {data_profile.row_count} rows.', 'success')
-                    return redirect(url_for('plan_report', data=session_data_encoded))
+                    return redirect(url_for('plan_report'))
                     
                 except Exception as e:
                     flash(f'Error processing file: {str(e)}', 'error')
@@ -113,16 +109,14 @@ def register_routes(app, data_processor, ai_planner):
     @app.route('/plan-report')
     def plan_report():
         """Report planning interface."""
-        data_param = request.args.get('data')
-        if not data_param:
-            flash('No data provided. Please upload a file first.', 'error')
+        # Check if data is in session
+        if 'csv_content' not in session or 'data_profile' not in session:
+            flash('No data found. Please upload a file first.', 'error')
             return redirect(url_for('index'))
         
         try:
-            # Decode session data
-            session_data = json.loads(base64.b64decode(data_param.encode()).decode())
-            data_profile = session_data['data_profile']
-            csv_content = session_data['csv_content']
+            data_profile = session['data_profile']
+            csv_content = session['csv_content']
             
             # Get available templates
             templates = create_government_report_templates()
@@ -142,22 +136,26 @@ def register_routes(app, data_processor, ai_planner):
     def api_plan_report():
         """API endpoint for AI report planning."""
         try:
+            # Check if data is in session
+            if 'csv_content' not in session or 'data_profile' not in session:
+                return jsonify({'error': 'No data found in session. Please upload a file first.'}), 400
+            
             data = request.get_json()
             if not data:
                 return jsonify({'error': 'No JSON data provided'}), 400
             
             user_description = data.get('user_description')
-            csv_data = data.get('data')
             template_hint = data.get('template_hint')
             
-            if not user_description or not csv_data:
-                return jsonify({'error': 'Missing required fields'}), 400
+            if not user_description:
+                return jsonify({'error': 'Missing user description'}), 400
             
-            # Process the data
-            try:
-                data_profile = data_processor.process_data_from_string(csv_data, 'csv')
-            except Exception as e:
-                return jsonify({'error': f'Data processing failed: {str(e)}'}), 400
+            # Get data from session
+            csv_content = session['csv_content']
+            data_profile_dict = session['data_profile']
+            
+            # Convert back to DataProfile object
+            data_profile = DataProfile.from_dict(data_profile_dict)
             
             # Generate AI plan
             if ai_planner:
@@ -171,7 +169,7 @@ def register_routes(app, data_processor, ai_planner):
                     response_data = {
                         'success': True,
                         'report_spec': report_spec.to_dict(),
-                        'data_profile': data_profile.to_dict(),
+                        'data_profile': data_profile_dict,
                         'message': 'Report plan generated successfully using AI',
                         'ai_generated': True
                     }
@@ -193,7 +191,7 @@ def register_routes(app, data_processor, ai_planner):
                 response_data = {
                     'success': True,
                     'report_spec': report_spec.to_dict(),
-                    'data_profile': data_profile.to_dict(),
+                    'data_profile': data_profile_dict,
                     'message': 'Report plan generated using template-based planning',
                     'ai_generated': False
                 }

@@ -207,6 +207,31 @@ class DataProfile:
             'row_count': self.row_count,
             'column_count': self.column_count
         }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'DataProfile':
+        """Create a DataProfile instance from a dictionary."""
+        columns = []
+        for col_data in data['columns']:
+            # Create a minimal ColumnProfile with required attributes
+            col = cls._create_column_from_dict(col_data)
+            columns.append(col)
+        
+        profile = cls(columns)
+        profile.row_count = data.get('row_count', 0)
+        profile.column_count = data.get('column_count', len(columns))
+        return profile
+    
+    @staticmethod
+    def _create_column_from_dict(col_data: Dict[str, Any]) -> 'ColumnProfile':
+        """Create a ColumnProfile from dictionary data."""
+        # Create a minimal ColumnProfile instance
+        col = ColumnProfile.__new__(ColumnProfile)
+        col.name = col_data['name']
+        col.type = col_data['type']
+        col.sample_values = col_data.get('sampleValues', [])
+        col.stats = col_data.get('stats', {})
+        return col
 
 
 class DataProcessor:

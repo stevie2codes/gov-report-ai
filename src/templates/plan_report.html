@@ -21,19 +21,20 @@
         <h2 class="text-xl font-semibold gov-primary mb-4">
             <i class="fas fa-database mr-2"></i>Your Data Profile
         </h2>
-        
+
         <div class="space-y-4">
             <div class="bg-gray-50 p-4 rounded-lg">
                 <div class="flex justify-between items-center mb-2">
                     <span class="font-medium text-gray-700">Dataset Summary</span>
-                    <span class="text-sm text-gray-500">{{ data_profile.row_count }} rows × {{ data_profile.column_count }} columns</span>
+                    <span class="text-sm text-gray-500">{{ data_profile.row_count }} rows × {{ data_profile.column_count
+                        }} columns</span>
                 </div>
                 <div class="grid grid-cols-2 gap-2 text-sm">
                     <div><span class="font-medium">Columns:</span> {{ data_profile.column_count }}</div>
                     <div><span class="font-medium">Rows:</span> {{ data_profile.row_count }}</div>
                 </div>
             </div>
-            
+
             <div>
                 <h3 class="font-medium text-gray-700 mb-2">Column Analysis</h3>
                 <div class="space-y-2">
@@ -65,16 +66,16 @@
         <h2 class="text-xl font-semibold gov-primary mb-4">
             <i class="fas fa-magic mr-2"></i>AI Report Planning
         </h2>
-        
+
         <form id="planningForm" class="space-y-4">
             <div>
                 <label for="user_description" class="form-label">Describe Your Report</label>
-                <textarea id="user_description" name="user_description" rows="4" 
-                          class="form-input" placeholder="e.g., Create a budget performance report showing department spending and variances, with charts comparing budget vs actual and a summary table of all departments"
-                          required></textarea>
+                <textarea id="user_description" name="user_description" rows="4" class="form-input"
+                    placeholder="e.g., Create a budget performance report showing department spending and variances, with charts comparing budget vs actual and a summary table of all departments"
+                    required></textarea>
                 <p class="text-sm text-gray-500 mt-1">Be specific about what you want to see in your report</p>
             </div>
-            
+
             <div>
                 <label for="template_hint" class="form-label">Template Hint (Optional)</label>
                 <select id="template_hint" name="template_hint" class="form-input">
@@ -85,14 +86,14 @@
                 </select>
                 <p class="text-sm text-gray-500 mt-1">Choose a template to guide the AI planning</p>
             </div>
-            
+
             <div class="pt-4">
                 <button type="submit" id="planButton" class="btn-primary w-full">
                     <i class="fas fa-brain mr-2"></i>Generate Report Plan
                 </button>
             </div>
         </form>
-        
+
         <!-- AI Status Indicator -->
         {% if ai_available %}
         <div class="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
@@ -117,11 +118,11 @@
     <h2 class="text-xl font-semibold gov-primary mb-4">
         <i class="fas fa-chart-line mr-2"></i>Generated Report Plan
     </h2>
-    
+
     <div id="resultsContent" class="space-y-6">
         <!-- Results will be populated here -->
     </div>
-    
+
     <div class="mt-6 pt-6 border-t border-gray-200">
         <div class="flex space-x-4">
             <button onclick="downloadReportSpec()" class="btn-secondary">
@@ -148,64 +149,63 @@
 
 {% block extra_scripts %}
 <script>
-const csvData = `{{ csv_content | safe }}`;
-const dataProfile = {{ data_profile | tojson }};
+    const csvData = `{{ csv_content | safe }}`;
+    const dataProfile = {{ data_profile | tojson }};
 
-document.getElementById('planningForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    
-    const formData = new FormData(this);
-    const userDescription = formData.get('user_description');
-    const templateHint = formData.get('template_hint');
-    
-    if (!userDescription.trim()) {
-        showAlert('Please describe what kind of report you need', 'error');
-        return;
-    }
-    
-    // Show loading
-    document.getElementById('loadingOverlay').classList.remove('hidden');
-    document.getElementById('planButton').disabled = true;
-    
-    try {
-        const response = await fetch('/api/plan-report', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                user_description: userDescription,
-                data: csvData,
-                template_hint: templateHint
-            })
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            displayResults(result);
-            showAlert('Report plan generated successfully!', 'success');
-        } else {
-            showAlert(result.error || 'Failed to generate report plan', 'error');
+    document.getElementById('planningForm').addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const formData = new FormData(this);
+        const userDescription = formData.get('user_description');
+        const templateHint = formData.get('template_hint');
+
+        if (!userDescription.trim()) {
+            showAlert('Please describe what kind of report you need', 'error');
+            return;
         }
-        
-    } catch (error) {
-        console.error('Error:', error);
-        showAlert('An error occurred while generating the report plan', 'error');
-    } finally {
-        // Hide loading
-        document.getElementById('loadingOverlay').classList.add('hidden');
-        document.getElementById('planButton').disabled = false;
-    }
-});
 
-function displayResults(result) {
-    const resultsSection = document.getElementById('resultsSection');
-    const resultsContent = document.getElementById('resultsContent');
-    
-    const reportSpec = result.report_spec;
-    
-    resultsContent.innerHTML = `
+        // Show loading
+        document.getElementById('loadingOverlay').classList.remove('hidden');
+        document.getElementById('planButton').disabled = true;
+
+        try {
+            const response = await fetch('/api/plan-report', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    user_description: userDescription,
+                    template_hint: templateHint
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                displayResults(result);
+                showAlert('Report plan generated successfully!', 'success');
+            } else {
+                showAlert(result.error || 'Failed to generate report plan', 'error');
+            }
+
+        } catch (error) {
+            console.error('Error:', error);
+            showAlert('An error occurred while generating the report plan', 'error');
+        } finally {
+            // Hide loading
+            document.getElementById('loadingOverlay').classList.add('hidden');
+            document.getElementById('planButton').disabled = false;
+        }
+    });
+
+    function displayResults(result) {
+        const resultsSection = document.getElementById('resultsSection');
+        const resultsContent = document.getElementById('resultsContent');
+
+        const reportSpec = result.report_spec;
+
+        resultsContent.innerHTML = `
         <div class="grid md:grid-cols-2 gap-6">
             <div>
                 <h3 class="text-lg font-semibold text-gray-800 mb-3">Report Overview</h3>
@@ -220,9 +220,8 @@ function displayResults(result) {
                     </div>
                     <div>
                         <span class="font-medium text-gray-700">Generated by:</span>
-                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            result.ai_generated ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                        }">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${result.ai_generated ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+            }">
                             ${result.ai_generated ? 'AI Planning' : 'Template Planning'}
                         </span>
                     </div>
@@ -319,19 +318,19 @@ function displayResults(result) {
         </div>
         ` : ''}
     `;
-    
-    resultsSection.classList.remove('hidden');
-    resultsSection.scrollIntoView({ behavior: 'smooth' });
-}
 
-function downloadReportSpec() {
-    // Implementation for downloading the report specification
-    showAlert('Download functionality coming soon!', 'info');
-}
+        resultsSection.classList.remove('hidden');
+        resultsSection.scrollIntoView({ behavior: 'smooth' });
+    }
 
-function previewReport() {
-    // Implementation for previewing the generated report
-    showAlert('Report preview functionality coming soon!', 'info');
-}
+    function downloadReportSpec() {
+        // Implementation for downloading the report specification
+        showAlert('Download functionality coming soon!', 'info');
+    }
+
+    function previewReport() {
+        // Implementation for previewing the generated report
+        showAlert('Report preview functionality coming soon!', 'info');
+    }
 </script>
 {% endblock %}
