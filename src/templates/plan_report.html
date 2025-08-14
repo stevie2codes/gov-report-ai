@@ -183,6 +183,9 @@
             const result = await response.json();
 
             if (result.success) {
+                // Store the report specification globally for preview
+                window.currentReportSpec = result.report_spec;
+                
                 displayResults(result);
                 showAlert('Report plan generated successfully!', 'success');
             } else {
@@ -329,8 +332,21 @@
     }
 
     function previewReport() {
-        // Implementation for previewing the generated report
-        showAlert('Report preview functionality coming soon!', 'info');
+        // Check if we have a report specification
+        if (!window.currentReportSpec) {
+            showAlert('Please generate a report plan first before previewing', 'error');
+            return;
+        }
+        
+        // Show loading
+        showAlert('Generating report preview...', 'info');
+        
+        // Open preview in new window
+        const previewWindow = window.open('/preview-report', '_blank', 'width=1200,height=800');
+        
+        if (!previewWindow) {
+            showAlert('Please allow popups to view the report preview', 'error');
+        }
     }
 </script>
 {% endblock %}

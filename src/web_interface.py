@@ -25,10 +25,12 @@ try:
     from .data_processor import DataProcessor, create_sample_data_profile, DataProfile
     from .ai_planner import AIReportPlanner
     from .report_spec import create_government_report_templates
+    from .report_renderer import ReportRenderer
 except ImportError:
     from data_processor import DataProcessor, create_sample_data_profile, DataProfile
     from ai_planner import AIReportPlanner
     from report_spec import create_government_report_templates
+    from report_renderer import ReportRenderer
 
 
 def create_app():
@@ -174,6 +176,9 @@ def register_routes(app, data_processor, ai_planner):
                         'ai_generated': True
                     }
                     
+                    # Store the report specification in session for preview
+                    session['report_spec'] = report_spec.to_dict()
+                    
                     return jsonify(response_data), 200
                     
                 except Exception as e:
@@ -195,6 +200,9 @@ def register_routes(app, data_processor, ai_planner):
                     'message': 'Report plan generated using template-based planning',
                     'ai_generated': False
                 }
+                
+                # Store the report specification in session for preview
+                session['report_spec'] = report_spec.to_dict()
                 
                 return jsonify(response_data), 200
                 
@@ -255,13 +263,76 @@ def register_routes(app, data_processor, ai_planner):
             
             return jsonify({
                 'success': True,
-                'templates': template_list,
-                'count': len(template_list)
+                'templates': template_list
             }), 200
-        
+            
         except Exception as e:
             logger.error(f"Error getting templates: {e}")
-            return jsonify({'error': 'Failed to retrieve templates'}), 500
+            return jsonify({'error': f'Failed to get templates: {str(e)}'}), 500
+    
+    @app.route('/preview-report')
+    def preview_report():
+        """Preview the generated report."""
+        # Check if data is in session
+        if 'csv_content' not in session or 'data_profile' not in session:
+            flash('No data found. Please upload a file and generate a report plan first.', 'error')
+            return redirect(url_for('index'))
+        
+        # Check if we have a report specification
+        report_spec = session.get('report_spec')
+        if not report_spec:
+            flash('No report specification found. Please generate a report plan first.', 'error')
+            return redirect(url_for('plan_report'))
+        
+        try:
+            data_profile = session['data_profile']
+            
+            # Initialize the report renderer
+            renderer = ReportRenderer()
+            
+            # Render the report
+            rendered_report = renderer.render_report(report_spec, data_profile)
+            
+            # Generate HTML preview
+            html_preview = renderer.generate_html_preview(rendered_report)
+            
+            return html_preview
+            
+        except Exception as e:
+            logger.error(f"Error in preview_report: {e}")
+            flash('Error generating report preview', 'error')
+            return redirect(url_for('plan_report'))
+    
+    @app.route('/api/preview-report', methods=['POST'])
+    def api_preview_report():
+        """API endpoint for generating report preview."""
+        try:
+            # Check if data is in session
+            if 'csv_content' not in session or 'data_profile' not in session:
+                return jsonify({'error': 'No data found in session. Please upload a file first.'}), 400
+            
+            # Check if we have a report specification
+            report_spec = session.get('report_spec')
+            if not report_spec:
+                return jsonify({'error': 'No report specification found. Please generate a report plan first.'}), 400
+            
+            data_profile = session['data_profile']
+            
+            # Initialize the report renderer
+            renderer = ReportRenderer()
+            
+            # Render the report
+            rendered_report = renderer.render_report(report_spec, data_profile)
+            
+            return jsonify({
+                'success': True,
+                'rendered_report': rendered_report,
+                'message': 'Report preview generated successfully'
+            }), 200
+            
+        except Exception as e:
+            logger.error(f"Error in api_preview_report: {e}")
+            return jsonify({'error': f'Failed to generate preview: {str(e)}'}), 500
     
     @app.route('/api/sample-data')
     def api_sample_data():
