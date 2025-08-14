@@ -10,9 +10,11 @@ import logging
 from typing import Dict, Any, Optional
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, session
 from flask_cors import CORS
+from flask_session import Session
 from dotenv import load_dotenv
 import base64
 import numpy as np
+from datetime import timedelta
 
 # Load environment variables
 load_dotenv()
@@ -84,8 +86,15 @@ def create_app():
     app = Flask(__name__)
     app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
     
+    # Configure session settings to handle larger data
+    app.config['SESSION_TYPE'] = 'filesystem'  # Use filesystem instead of cookies for large data
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
+    
     # Enable CORS
     CORS(app)
+    
+    # Initialize Flask-Session
+    Session(app)
     
     # Global instances
     data_processor = DataProcessor()
@@ -161,11 +170,21 @@ def register_routes(app, data_processor, ai_planner):
                     logger.info(f"AI profile dict types: {type(ai_profile_dict)}")
                     logger.info(f"Recommendations types: {type(recommendations)}")
                     
-                    # Ensure all data is JSON serializable
-                    session['full_data_profile'] = ensure_json_serializable(full_profile_dict)
+                    # Store only essential data in session to avoid cookie size limits
+                    # Store minimal AI profile for planning
                     session['ai_data_profile'] = ensure_json_serializable(ai_profile_dict)
                     session['data_profile'] = ensure_json_serializable(ai_profile_dict)  # Keep for backward compatibility
                     session['processing_recommendations'] = ensure_json_serializable(recommendations)
+                    
+                    # Store full profile separately (not in session) - will be processed on-demand
+                    # This prevents the 4KB cookie limit issue
+                    session['has_full_data'] = True
+                    session['file_metadata'] = {
+                        'filename': file.filename,
+                        'total_rows': full_profile.total_rows,
+                        'file_size_mb': full_profile.file_size_mb,
+                        'columns_count': len(full_profile.columns)
+                    }
                     
                     # Debug: Log the types after serialization
                     logger.info(f"Session data types after serialization:")
@@ -221,7 +240,11 @@ def register_routes(app, data_processor, ai_planner):
             data_profile = session.get('ai_data_profile') or session.get('data_profile')
             csv_content = session['csv_content']
             
+            # Get file metadata for display
+            file_metadata = session.get('file_metadata', {})
+            
             logger.info(f"Data profile loaded: {data_profile.get('total_rows', 'unknown')} rows, {len(data_profile.get('columns', []))} columns")
+            logger.info(f"File metadata: {file_metadata}")
             
             # Get available templates
             templates = create_government_report_templates()
@@ -231,6 +254,7 @@ def register_routes(app, data_processor, ai_planner):
                                 data_profile=data_profile,
                                 csv_content=csv_content,
                                 templates=templates,
+                                file_metadata=file_metadata,
                                 ai_available=ai_planner is not None)
         
         except Exception as e:

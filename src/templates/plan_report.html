@@ -26,13 +26,35 @@
             <div class="bg-gray-50 p-4 rounded-lg">
                 <div class="flex justify-between items-center mb-2">
                     <span class="font-medium text-gray-700">Dataset Summary</span>
-                    <span class="text-sm text-gray-500">{{ data_profile.row_count }} rows × {{ data_profile.column_count
-                        }} columns</span>
+                    <span class="text-sm text-gray-500">
+                        {% if file_metadata.total_rows %}
+                            {{ file_metadata.total_rows | int }} rows × {{ file_metadata.columns_count | int }} columns
+                        {% else %}
+                            {{ data_profile.total_rows }} rows × {{ data_profile.columns | length }} columns
+                        {% endif %}
+                    </span>
                 </div>
                 <div class="grid grid-cols-2 gap-2 text-sm">
-                    <div><span class="font-medium">Columns:</span> {{ data_profile.column_count }}</div>
-                    <div><span class="font-medium">Rows:</span> {{ data_profile.row_count }}</div>
+                    <div><span class="font-medium">Columns:</span> 
+                        {% if file_metadata.columns_count %}
+                            {{ file_metadata.columns_count | int }}
+                        {% else %}
+                            {{ data_profile.columns | length }}
+                        {% endif %}
+                    </div>
+                    <div><span class="font-medium">Rows:</span> 
+                        {% if file_metadata.total_rows %}
+                            {{ file_metadata.total_rows | int }}
+                        {% else %}
+                            {{ data_profile.total_rows }}
+                        {% endif %}
+                    </div>
                 </div>
+                {% if file_metadata.file_size_mb %}
+                <div class="mt-2 text-xs text-gray-500">
+                    File size: {{ "%.2f"|format(file_metadata.file_size_mb) }} MB
+                </div>
+                {% endif %}
             </div>
 
             <div>
@@ -51,8 +73,10 @@
                             <span class="font-medium">{{ column.name }}</span>
                         </div>
                         <div class="text-sm text-gray-500">
-                            <span class="capitalize">{{ column.type }}</span>
-                            <span class="ml-2">({{ column.stats.unique_count }} unique)</span>
+                            <span class="capitalize">{{ column.type or 'string' }}</span>
+                            <span class="ml-2">
+                                ({{ column.unique_count or column.get('unique_count', 'unknown') }} unique)
+                            </span>
                         </div>
                     </div>
                     {% endfor %}
