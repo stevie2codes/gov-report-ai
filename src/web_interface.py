@@ -26,11 +26,13 @@ try:
     from .ai_planner import AIReportPlanner
     from .report_spec import create_government_report_templates
     from .report_renderer import ReportRenderer
+    from .report_suggester import ReportTypeSuggester
 except ImportError:
     from data_processor import DataProcessor, create_sample_data_profile, DataProfile
     from ai_planner import AIReportPlanner
     from report_spec import create_government_report_templates
     from report_renderer import ReportRenderer
+    from report_suggester import ReportTypeSuggester
 
 
 def create_app():
@@ -338,17 +340,49 @@ def register_routes(app, data_processor, ai_planner):
     def api_sample_data():
         """API endpoint for getting sample data."""
         try:
+            # Import here to avoid circular import issues
+            try:
+                from .data_processor import create_sample_data_profile
+            except ImportError:
+                from data_processor import create_sample_data_profile
+            
             sample_profile = create_sample_data_profile()
             
             return jsonify({
                 'success': True,
                 'data_profile': sample_profile.to_dict(),
-                'message': 'Sample data profile generated'
+                'message': 'Sample data profile generated successfully'
             }), 200
-        
+            
         except Exception as e:
             logger.error(f"Error generating sample data: {e}")
-            return jsonify({'error': 'Failed to generate sample data'}), 500
+            return jsonify({'error': f'Failed to generate sample data: {str(e)}'}), 500
+    
+    @app.route('/api/suggest-reports')
+    def api_suggest_reports():
+        """API endpoint for getting report type suggestions based on uploaded data."""
+        try:
+            # Check if data is in session
+            if 'data_profile' not in session:
+                return jsonify({'error': 'No data found in session. Please upload a file first.'}), 400
+            
+            data_profile = session['data_profile']
+            
+            # Initialize the report suggester
+            suggester = ReportTypeSuggester()
+            
+            # Get report suggestions
+            suggestions = suggester.get_report_template_suggestions(data_profile)
+            
+            return jsonify({
+                'success': True,
+                'suggestions': suggestions,
+                'message': 'Report suggestions generated successfully'
+            }), 200
+            
+        except Exception as e:
+            logger.error(f"Error in api_suggest_reports: {e}")
+            return jsonify({'error': f'Failed to generate suggestions: {str(e)}'}), 500
     
     @app.route('/preview/<template_name>')
     def preview_template(template_name):

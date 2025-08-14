@@ -61,12 +61,32 @@
         </div>
     </div>
 
-    <!-- Report Planning Section -->
-    <div class="card">
+    <!-- Report Suggestions Section -->
+    <div class="card mt-8">
+        <h2 class="text-xl font-semibold gov-primary mb-4">
+            <i class="fas fa-lightbulb mr-2"></i>Report Suggestions
+        </h2>
+        
+        <div id="suggestionsContent" class="space-y-4">
+            <div class="text-center py-8">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p class="text-gray-600">Analyzing your data for report suggestions...</p>
+            </div>
+        </div>
+        
+        <div class="mt-4">
+            <button onclick="refreshSuggestions()" class="btn-secondary w-full">
+                <i class="fas fa-refresh mr-2"></i>Refresh Suggestions
+            </button>
+        </div>
+    </div>
+
+    <!-- AI Planning Section -->
+    <div class="card mt-8">
         <h2 class="text-xl font-semibold gov-primary mb-4">
             <i class="fas fa-magic mr-2"></i>AI Report Planning
         </h2>
-
+        
         <form id="planningForm" class="space-y-4">
             <div>
                 <label for="user_description" class="form-label">Describe Your Report</label>
@@ -75,7 +95,7 @@
                     required></textarea>
                 <p class="text-sm text-gray-500 mt-1">Be specific about what you want to see in your report</p>
             </div>
-
+            
             <div>
                 <label for="template_hint" class="form-label">Template Hint (Optional)</label>
                 <select id="template_hint" name="template_hint" class="form-input">
@@ -86,14 +106,14 @@
                 </select>
                 <p class="text-sm text-gray-500 mt-1">Choose a template to guide the AI planning</p>
             </div>
-
+            
             <div class="pt-4">
                 <button type="submit" id="planButton" class="btn-primary w-full">
                     <i class="fas fa-brain mr-2"></i>Generate Report Plan
                 </button>
             </div>
         </form>
-
+        
         <!-- AI Status Indicator -->
         {% if ai_available %}
         <div class="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
@@ -201,6 +221,188 @@
             document.getElementById('planButton').disabled = false;
         }
     });
+
+    // Load suggestions when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        loadReportSuggestions();
+    });
+
+    function loadReportSuggestions() {
+        fetch('/api/suggest-reports')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displaySuggestions(data.suggestions);
+                } else {
+                    showAlert('Failed to load report suggestions: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error loading suggestions:', error);
+                showAlert('Failed to load report suggestions', 'error');
+            });
+    }
+
+    function refreshSuggestions() {
+        const suggestionsContent = document.getElementById('suggestionsContent');
+        suggestionsContent.innerHTML = `
+            <div class="text-center py-8">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p class="text-gray-600">Refreshing suggestions...</p>
+            </div>
+        `;
+        loadReportSuggestions();
+    }
+
+    function displaySuggestions(suggestions) {
+        const suggestionsContent = document.getElementById('suggestionsContent');
+        
+        if (!suggestions.report_suggestions || suggestions.report_suggestions.length === 0) {
+            suggestionsContent.innerHTML = `
+                <div class="text-center py-8">
+                    <div class="text-gray-500 mb-4">
+                        <i class="fas fa-info-circle text-4xl"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-700 mb-2">No Specific Report Types Detected</h3>
+                    <p class="text-gray-600">Your data doesn't match common report patterns, but you can still create custom reports using AI planning below.</p>
+                </div>
+            `;
+            return;
+        }
+
+        let html = '';
+        
+        // Data summary
+        if (suggestions.data_summary) {
+            html += `
+                <div class="bg-blue-50 p-4 rounded-lg mb-6">
+                    <h3 class="font-medium text-blue-800 mb-3">Data Summary</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                            <span class="text-blue-600 font-medium">Columns:</span>
+                            <span class="text-blue-800">${suggestions.data_summary.total_columns}</span>
+                        </div>
+                        <div>
+                            <span class="text-blue-600 font-medium">Rows:</span>
+                            <span class="text-blue-800">${suggestions.data_summary.total_rows}</span>
+                        </div>
+                        <div>
+                            <span class="text-blue-600 font-medium">Data Quality:</span>
+                            <span class="text-blue-800">${Math.round(suggestions.data_summary.data_quality.data_completeness * 100)}%</span>
+                        </div>
+                        <div>
+                            <span class="text-blue-600 font-medium">Trend Analysis:</span>
+                            <span class="text-blue-800">${suggestions.data_summary.data_quality.suitable_for_trends ? 'Yes' : 'No'}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Report suggestions
+        html += '<div class="space-y-4">';
+        suggestions.report_suggestions.forEach((suggestion, index) => {
+            const confidenceColor = suggestion.confidence >= 0.8 ? 'green' : 
+                                  suggestion.confidence >= 0.7 ? 'blue' : 'yellow';
+            
+            html += `
+                <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div class="flex items-start justify-between mb-3">
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-800">${suggestion.name}</h3>
+                            <p class="text-gray-600 text-sm">${suggestion.description}</p>
+                        </div>
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-${confidenceColor}-100 text-${confidenceColor}-800">
+                            ${suggestion.confidence_level}
+                        </span>
+                    </div>
+                    
+                    <div class="grid md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <h4 class="font-medium text-gray-700 mb-2">Recommended Charts</h4>
+                            <div class="flex flex-wrap gap-2">
+                                ${suggestion.recommended_charts.map(chart => 
+                                    `<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">${chart}</span>`
+                                ).join('')}
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="font-medium text-gray-700 mb-2">Recommended KPIs</h4>
+                            <div class="flex flex-wrap gap-2">
+                                ${suggestion.recommended_kpis.map(kpi => 
+                                    `<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">${kpi}</span>`
+                                ).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <div>
+                            <h4 class="font-medium text-gray-700 mb-2">Data Insights</h4>
+                            <ul class="text-sm text-gray-600 space-y-1">
+                                ${suggestion.data_insights.map(insight => 
+                                    `<li class="flex items-start">
+                                        <i class="fas fa-lightbulb text-yellow-500 mt-1 mr-2 flex-shrink-0"></i>
+                                        <span>${insight}</span>
+                                    </li>`
+                                ).join('')}
+                            </ul>
+                        </div>
+                        
+                        <div>
+                            <h4 class="font-medium text-gray-700 mb-2">Sample Questions</h4>
+                            <ul class="text-sm text-gray-600 space-y-1">
+                                ${suggestion.sample_questions.map(question => 
+                                    `<li class="flex items-start">
+                                        <i class="fas fa-question-circle text-blue-500 mt-1 mr-2 flex-shrink-0"></i>
+                                        <span>${question}</span>
+                                    </li>`
+                                ).join('')}
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 pt-4 border-t border-gray-200">
+                        <button onclick="useSuggestion('${suggestion.name}', '${suggestion.type}')" 
+                                class="btn-primary text-sm">
+                            <i class="fas fa-magic mr-2"></i>Use This Report Type
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+        html += '</div>';
+
+        // Recommendations
+        if (suggestions.recommendations && suggestions.recommendations.length > 0) {
+            html += `
+                <div class="bg-yellow-50 p-4 rounded-lg mt-6">
+                    <h3 class="font-medium text-yellow-800 mb-3">Recommendations</h3>
+                    <ul class="text-sm text-yellow-700 space-y-2">
+                        ${suggestions.recommendations.map(rec => 
+                            `<li class="flex items-start">
+                                <i class="fas fa-star text-yellow-500 mt-1 mr-2 flex-shrink-0"></i>
+                                <span>${rec}</span>
+                            </li>`
+                        ).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+
+        suggestionsContent.innerHTML = html;
+    }
+
+    function useSuggestion(reportName, reportType) {
+        // Pre-fill the planning form with the suggested report type
+        const userDescription = document.getElementById('user_description');
+        userDescription.value = `Create a ${reportName.toLowerCase()} using the data. Include relevant KPIs, charts, and tables to provide comprehensive insights.`;
+        
+        // Scroll to the planning section
+        document.getElementById('planningForm').scrollIntoView({ behavior: 'smooth' });
+        
+        showAlert(`Using "${reportName}" as your report type. Feel free to modify the description below.`, 'success');
+    }
 
     function displayResults(result) {
         const resultsSection = document.getElementById('resultsSection');
