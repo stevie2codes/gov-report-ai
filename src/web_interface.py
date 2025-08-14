@@ -412,7 +412,7 @@ def register_routes(app, data_processor, ai_planner):
 if __name__ == '__main__':
     import os
     port = int(os.environ.get('PORT', 5001))
-    host = os.environ.get('HOST', '127.0.0.1')
+    host = os.environ.get('HOST', '0.0.0.0')  # Default to 0.0.0.0 for production
     
     # Create and run the app
     app = create_app()
