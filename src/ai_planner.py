@@ -227,7 +227,7 @@ RESPOND WITH ONLY THE JSON, no other text. Make this report specification except
                     }
                 ],
                 temperature=0.2,  # Lower temperature for more consistent, professional output
-                max_tokens=3000,  # Increased for more comprehensive reports
+                max_completion_tokens=3000,  # Increased for more comprehensive reports
                 response_format={"type": "json_object"},
                 top_p=0.9,  # Focus on most relevant responses
                 frequency_penalty=0.1,  # Encourage diverse, creative solutions
