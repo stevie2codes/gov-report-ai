@@ -23,101 +23,122 @@ class ReportTypeSuggester:
                 'name': 'Budget Performance Report',
                 'description': 'Analysis of budget vs actual spending with variance calculations',
                 'keywords': ['budget', 'actual', 'spending', 'expense', 'cost', 'variance'],
-                'required_columns': ['budget', 'actual'],
-                'optional_columns': ['department', 'category', 'date', 'variance', 'percentage'],
+                'required_columns': [
+                    ['budget', 'planned', 'allocated', 'appropriated', 'authorized', 'estimated'],
+                    ['actual', 'spent', 'expended', 'incurred', 'paid', 'disbursed']
+                ],
+                'optional_columns': ['department', 'category', 'date', 'variance', 'percentage', 'division', 'unit', 'program', 'fund'],
                 'chart_types': ['bar', 'line', 'pie'],
                 'kpi_types': ['sum', 'avg', 'variance'],
-                'confidence_threshold': 0.7
+                'confidence_threshold': 0.6
             },
             'financial_summary': {
                 'name': 'Financial Summary Report',
                 'description': 'Comprehensive financial overview with key metrics and trends',
                 'keywords': ['revenue', 'income', 'profit', 'loss', 'financial', 'fiscal'],
-                'required_columns': ['amount', 'revenue', 'income'],
-                'optional_columns': ['date', 'category', 'department', 'type'],
+                'required_columns': [
+                    ['amount', 'revenue', 'income', 'receipts', 'collections', 'funds', 'total', 'value']
+                ],
+                'optional_columns': ['date', 'category', 'department', 'type', 'period', 'quarter', 'year', 'fiscal'],
                 'chart_types': ['line', 'bar', 'area'],
                 'kpi_types': ['sum', 'avg', 'trend'],
-                'confidence_threshold': 0.6
+                'confidence_threshold': 0.5
             },
             'operational_metrics': {
                 'name': 'Operational Metrics Report',
                 'description': 'Performance indicators and operational efficiency analysis',
                 'keywords': ['performance', 'efficiency', 'metrics', 'kpi', 'target', 'goal'],
-                'required_columns': ['metric', 'value', 'target'],
-                'optional_columns': ['date', 'department', 'category', 'status'],
+                'required_columns': [
+                    ['metric', 'value', 'target', 'goal', 'performance', 'score', 'rating', 'efficiency']
+                ],
+                'optional_columns': ['date', 'department', 'category', 'status', 'period', 'quarter', 'month'],
                 'chart_types': ['gauge', 'bar', 'line'],
                 'kpi_types': ['comparison', 'percentage', 'trend'],
-                'confidence_threshold': 0.6
+                'confidence_threshold': 0.5
             },
             'department_comparison': {
                 'name': 'Department Comparison Report',
                 'description': 'Cross-departmental analysis and benchmarking',
                 'keywords': ['department', 'division', 'unit', 'compare', 'benchmark'],
-                'required_columns': ['department', 'value'],
-                'optional_columns': ['category', 'date', 'budget', 'actual'],
+                'required_columns': [
+                    ['department', 'division', 'unit', 'agency', 'bureau', 'office', 'section', 'team', 'program']
+                ],
+                'optional_columns': ['category', 'date', 'budget', 'actual', 'performance', 'metric', 'value'],
                 'chart_types': ['bar', 'radar', 'table'],
                 'kpi_types': ['comparison', 'ranking', 'percentage'],
-                'confidence_threshold': 0.7
+                'confidence_threshold': 0.6
             },
             'trend_analysis': {
                 'name': 'Trend Analysis Report',
                 'description': 'Time-series analysis showing patterns and trends over time',
                 'keywords': ['date', 'time', 'trend', 'pattern', 'growth', 'decline'],
-                'required_columns': ['date', 'value'],
-                'optional_columns': ['category', 'department', 'metric'],
+                'required_columns': [
+                    ['date', 'time', 'period', 'quarter', 'month', 'year', 'fiscal', 'reporting']
+                ],
+                'optional_columns': ['category', 'department', 'metric', 'value', 'performance'],
                 'chart_types': ['line', 'area', 'scatter'],
                 'kpi_types': ['trend', 'growth_rate', 'forecast'],
-                'confidence_threshold': 0.8
+                'confidence_threshold': 0.7
             },
             'compliance_summary': {
                 'name': 'Compliance Summary Report',
                 'description': 'Regulatory compliance status and audit findings',
                 'keywords': ['compliance', 'audit', 'regulation', 'status', 'finding', 'violation'],
-                'required_columns': ['status', 'compliance'],
-                'optional_columns': ['date', 'department', 'regulation', 'finding'],
+                'required_columns': [
+                    ['status', 'compliance', 'audit', 'finding', 'violation', 'regulation', 'requirement']
+                ],
+                'optional_columns': ['date', 'department', 'regulation', 'finding', 'severity', 'action'],
                 'chart_types': ['pie', 'bar', 'table'],
                 'kpi_types': ['percentage', 'count', 'status'],
-                'confidence_threshold': 0.7
+                'confidence_threshold': 0.6
             },
             'resource_allocation': {
                 'name': 'Resource Allocation Report',
                 'description': 'Resource distribution and utilization analysis',
                 'keywords': ['resource', 'allocation', 'utilization', 'capacity', 'workload'],
-                'required_columns': ['resource', 'allocation'],
-                'optional_columns': ['department', 'date', 'utilization', 'capacity'],
+                'required_columns': [
+                    ['resource', 'allocation', 'utilization', 'capacity', 'workload', 'staffing', 'fte', 'hours']
+                ],
+                'optional_columns': ['department', 'date', 'utilization', 'capacity', 'efficiency', 'productivity'],
                 'chart_types': ['pie', 'bar', 'gauge'],
                 'kpi_types': ['percentage', 'efficiency', 'utilization'],
-                'confidence_threshold': 0.6
+                'confidence_threshold': 0.5
             },
             'customer_service': {
                 'name': 'Customer Service Report',
                 'description': 'Service quality metrics and customer satisfaction analysis',
                 'keywords': ['customer', 'service', 'satisfaction', 'response', 'quality'],
-                'required_columns': ['satisfaction', 'response_time'],
-                'optional_columns': ['date', 'agent', 'category', 'rating'],
+                'required_columns': [
+                    ['satisfaction', 'response_time', 'quality', 'rating', 'score', 'feedback', 'complaint']
+                ],
+                'optional_columns': ['date', 'agent', 'category', 'rating', 'department', 'service_type'],
                 'chart_types': ['gauge', 'bar', 'line'],
                 'kpi_types': ['avg', 'percentage', 'trend'],
-                'confidence_threshold': 0.6
+                'confidence_threshold': 0.5
             },
             'inventory_management': {
                 'name': 'Inventory Management Report',
                 'description': 'Stock levels, turnover rates, and inventory optimization',
                 'keywords': ['inventory', 'stock', 'turnover', 'level', 'supply'],
-                'required_columns': ['inventory', 'stock'],
-                'optional_columns': ['date', 'category', 'location', 'turnover'],
+                'required_columns': [
+                    ['inventory', 'stock', 'turnover', 'level', 'supply', 'quantity', 'count', 'amount']
+                ],
+                'optional_columns': ['date', 'category', 'location', 'turnover', 'supplier', 'cost'],
                 'chart_types': ['bar', 'line', 'pie'],
                 'kpi_types': ['count', 'turnover_rate', 'efficiency'],
-                'confidence_threshold': 0.7
+                'confidence_threshold': 0.6
             },
             'project_status': {
                 'name': 'Project Status Report',
                 'description': 'Project progress, milestones, and completion tracking',
                 'keywords': ['project', 'status', 'progress', 'milestone', 'completion'],
-                'required_columns': ['status', 'progress'],
-                'optional_columns': ['date', 'project', 'milestone', 'completion'],
+                'required_columns': [
+                    ['status', 'progress', 'milestone', 'completion', 'phase', 'stage', 'task']
+                ],
+                'optional_columns': ['date', 'project', 'milestone', 'completion', 'manager', 'budget'],
                 'chart_types': ['gantt', 'bar', 'pie'],
                 'kpi_types': ['percentage', 'count', 'timeline'],
-                'confidence_threshold': 0.7
+                'confidence_threshold': 0.6
             }
         }
     
@@ -164,13 +185,14 @@ class ReportTypeSuggester:
         score = 0.0
         total_possible = 0.0
         
-        # Check required columns
+        # Check required columns (now each required column can have multiple acceptable names)
         required_score = 0.0
-        for required_col in pattern['required_columns']:
+        for required_col_patterns in pattern['required_columns']:
             total_possible += 1.0
-            if any(required_col in col_name for col_name in column_names):
+            # Check if any column name matches any of the acceptable patterns
+            if any(any(pattern.lower() in col_name.lower() for pattern in required_col_patterns) for col_name in column_names):
                 required_score += 1.0
-            elif any(self._is_similar_column(required_col, col_name) for col_name in column_names):
+            elif any(any(self._is_similar_column(pattern, col_name) for pattern in required_col_patterns) for col_name in column_names):
                 required_score += 0.8
         
         # Required columns get higher weight
@@ -181,7 +203,7 @@ class ReportTypeSuggester:
         optional_score = 0.0
         optional_count = 0
         for optional_col in pattern['optional_columns']:
-            if any(optional_col in col_name for col_name in column_names):
+            if any(optional_col.lower() in col_name.lower() for col_name in column_names):
                 optional_score += 1.0
                 optional_count += 1
             elif any(self._is_similar_column(optional_col, col_name) for col_name in column_names):
