@@ -85,7 +85,7 @@ class AIReportPlanner:
         except Exception as e:
             logger.error(f"Error in AI planning: {e}")
             # Fallback to template-based generation
-            return self._generate_fallback_spec(user_description, data_profile, template_hint)
+            return self._generate_fallback_report(data_profile, user_description, template_hint)
     
     def _create_planning_prompt(
         self, 
@@ -179,7 +179,7 @@ RESPOND WITH ONLY THE JSON, no other text.
         """Call OpenAI API to generate the report plan."""
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4",
+                model="gpt-5",
                 messages=[
                     {
                         "role": "system",
@@ -353,71 +353,285 @@ RESPOND WITH ONLY THE JSON, no other text.
         
         return None
     
-    def _generate_fallback_spec(
+    def _generate_fallback_report(
         self, 
-        user_description: str, 
-        data_profile: DataProfile,
+        data_profile: DataProfile, 
+        user_description: str,
         template_hint: Optional[str] = None
     ) -> ReportSpec:
         """Generate a fallback report specification when AI planning fails."""
         logger.info("Generating fallback report specification...")
         
-        # Create a simple fallback based on available data
+        # Analyze the data profile to create a more intelligent fallback
+        numeric_columns = data_profile.get_columns_by_type("number")
+        string_columns = data_profile.get_columns_by_type("string")
+        date_columns = data_profile.get_columns_by_type("date")
+        currency_columns = data_profile.get_columns_by_type("currency")
+        percent_columns = data_profile.get_columns_by_type("percent")
+        
+        # Determine report type based on data characteristics
+        report_type = self._determine_report_type_from_data(data_profile)
+        
+        # Create KPIs based on report type
+        kpis = self._create_kpis_for_report_type(report_type, data_profile)
+        
+        # Create charts based on report type
+        charts = self._create_charts_for_report_type(report_type, data_profile)
+        
+        # Create tables based on report type
+        tables = self._create_tables_for_report_type(report_type, data_profile)
+        
+        # Create narrative goals based on report type
+        narrative_goals = self._create_narrative_for_report_type(report_type, data_profile)
+        
+        return ReportSpec(
+            title=f"{report_type['title']}: {user_description[:50]}...",
+            kpis=kpis,
+            charts=charts,
+            tables=tables,
+            narrative_goals=narrative_goals,
+            description=f"Intelligent fallback report for {report_type['name']} data"
+        )
+    
+    def _determine_report_type_from_data(self, data_profile: DataProfile) -> Dict[str, Any]:
+        """Determine the most appropriate report type based on data characteristics."""
+        numeric_columns = data_profile.get_columns_by_type("number")
+        string_columns = data_profile.get_columns_by_type("string")
+        date_columns = data_profile.get_columns_by_type("date")
+        currency_columns = data_profile.get_columns_by_type("currency")
+        
+        # Check for budget/performance patterns
+        budget_keywords = ['budget', 'actual', 'planned', 'allocated', 'spent', 'expended']
+        dept_keywords = ['department', 'division', 'unit', 'agency', 'bureau']
+        
+        has_budget_data = any(
+            any(keyword in col.name.lower() for keyword in budget_keywords)
+            for col in numeric_columns + currency_columns
+        )
+        
+        has_dept_data = any(
+            any(keyword in col.name.lower() for keyword in dept_keywords)
+            for col in string_columns
+        )
+        
+        if has_budget_data and has_dept_data:
+            return {
+                'name': 'budget_performance',
+                'title': 'Budget Performance Analysis',
+                'description': 'Analysis of budget vs actual spending across departments'
+            }
+        
+        # Check for financial data
+        financial_keywords = ['revenue', 'income', 'expense', 'cost', 'amount', 'total']
+        has_financial_data = any(
+            any(keyword in col.name.lower() for keyword in financial_keywords)
+            for col in numeric_columns + currency_columns
+        )
+        
+        if has_financial_data:
+            return {
+                'name': 'financial_summary',
+                'title': 'Financial Summary Report',
+                'description': 'Comprehensive financial overview and analysis'
+            }
+        
+        # Check for operational metrics
+        metric_keywords = ['score', 'rating', 'performance', 'efficiency', 'target']
+        has_metrics = any(
+            any(keyword in col.name.lower() for keyword in metric_keywords)
+            for col in numeric_columns + percent_columns
+        )
+        
+        if has_metrics:
+            return {
+                'name': 'operational_metrics',
+                'title': 'Operational Metrics Report',
+                'description': 'Performance indicators and operational analysis'
+            }
+        
+        # Check for trend analysis
+        if date_columns and numeric_columns:
+            return {
+                'name': 'trend_analysis',
+                'title': 'Trend Analysis Report',
+                'description': 'Time-series analysis and trend identification'
+            }
+        
+        # Default to data summary
+        return {
+            'name': 'data_summary',
+            'title': 'Data Summary Report',
+            'description': 'Comprehensive overview of the dataset'
+        }
+    
+    def _create_kpis_for_report_type(self, report_type: Dict[str, Any], data_profile: DataProfile) -> List[KPI]:
+        """Create appropriate KPIs based on report type."""
+        kpis = []
+        numeric_columns = data_profile.get_columns_by_type("number")
+        currency_columns = data_profile.get_columns_by_type("currency")
+        percent_columns = data_profile.get_columns_by_type("percent")
+        
+        if report_type['name'] == 'budget_performance':
+            # Look for budget-related columns
+            budget_cols = [col for col in numeric_columns + currency_columns 
+                          if any(keyword in col.name.lower() 
+                                for keyword in ['budget', 'planned', 'allocated'])]
+            actual_cols = [col for col in numeric_columns + currency_columns 
+                          if any(keyword in col.name.lower() 
+                                for keyword in ['actual', 'spent', 'expended'])]
+            
+            if budget_cols and actual_cols:
+                kpis.extend([
+                    KPI(label="Total Budget", metric=MetricType.SUM, column=budget_cols[0].name, format=FormatType.CURRENCY),
+                    KPI(label="Total Actual", metric=MetricType.SUM, column=actual_cols[0].name, format=FormatType.CURRENCY),
+                    KPI(label="Budget Variance", metric=MetricType.AVG, column="Variance", format=FormatType.PERCENT)
+                ])
+        
+        elif report_type['name'] == 'financial_summary':
+            # Look for financial columns
+            financial_cols = [col for col in numeric_columns + currency_columns 
+                            if any(keyword in col.name.lower() 
+                                  for keyword in ['revenue', 'income', 'amount', 'total'])]
+            
+            if financial_cols:
+                kpis.extend([
+                    KPI(label=f"Total {financial_cols[0].name.title()}", metric=MetricType.SUM, 
+                        column=financial_cols[0].name, format=FormatType.CURRENCY),
+                    KPI(label=f"Average {financial_cols[0].name.title()}", metric=MetricType.AVG, 
+                        column=financial_cols[0].name, format=FormatType.CURRENCY)
+                ])
+        
+        elif report_type['name'] == 'operational_metrics':
+            # Look for metric columns
+            metric_cols = [col for col in numeric_columns + percent_columns 
+                          if any(keyword in col.name.lower() 
+                                for keyword in ['score', 'rating', 'performance'])]
+            
+            if metric_cols:
+                kpis.extend([
+                    KPI(label=f"Average {metric_cols[0].name.title()}", metric=MetricType.AVG, 
+                        column=metric_cols[0].name, format=FormatType.NUMBER),
+                    KPI(label=f"Best {metric_cols[0].name.title()}", metric=MetricType.MAX, 
+                        column=metric_cols[0].name, format=FormatType.NUMBER)
+                ])
+        
+        # Add a general KPI if none were created
+        if not kpis and numeric_columns:
+            kpis.append(KPI(
+                label=f"Total {numeric_columns[0].name.title()}", 
+                metric=MetricType.SUM, 
+                column=numeric_columns[0].name, 
+                format=FormatType.NUMBER
+            ))
+        
+        return kpis
+    
+    def _create_charts_for_report_type(self, report_type: Dict[str, Any], data_profile: DataProfile) -> List[ChartSpec]:
+        """Create appropriate charts based on report type."""
+        charts = []
         numeric_columns = data_profile.get_columns_by_type("number")
         string_columns = data_profile.get_columns_by_type("string")
         date_columns = data_profile.get_columns_by_type("date")
         
-        # Basic KPI
-        kpis = []
-        if numeric_columns:
-            kpis.append(KPI(
-                label=f"Total {numeric_columns[0].name}",
-                metric=MetricType.SUM,
-                column=numeric_columns[0].name,
-                format=FormatType.NUMBER,
-                description=f"Sum of {numeric_columns[0].name}"
+        if report_type['name'] == 'budget_performance' and string_columns and numeric_columns:
+            # Budget vs Actual bar chart
+            budget_cols = [col for col in numeric_columns 
+                          if any(keyword in col.name.lower() 
+                                for keyword in ['budget', 'planned', 'allocated'])]
+            actual_cols = [col for col in numeric_columns 
+                          if any(keyword in col.name.lower() 
+                                for keyword in ['actual', 'spent', 'expended'])]
+            dept_cols = [col for col in string_columns 
+                        if any(keyword in col.name.lower() 
+                              for keyword in ['department', 'division', 'unit'])]
+            
+            if budget_cols and actual_cols and dept_cols:
+                charts.append(ChartSpec(
+                    type=ChartType.BAR,
+                    title="Budget vs Actual by Department",
+                    x={"column": dept_cols[0].name},
+                    series=[
+                        ChartSeries(label="Budget", metric="sum", column=budget_cols[0].name),
+                        ChartSeries(label="Actual", metric="sum", column=actual_cols[0].name)
+                    ],
+                    description="Comparison of budgeted vs actual spending across departments"
+                ))
+        
+        elif report_type['name'] == 'trend_analysis' and date_columns and numeric_columns:
+            # Time series chart
+            charts.append(ChartSpec(
+                type=ChartType.LINE,
+                title=f"{numeric_columns[0].name.title()} Over Time",
+                x={"column": date_columns[0].name},
+                series=[
+                    ChartSeries(label=numeric_columns[0].name.title(), metric="sum", column=numeric_columns[0].name)
+                ],
+                description=f"Trend analysis of {numeric_columns[0].name} over time"
             ))
         
-        # Basic chart
-        charts = []
-        if string_columns and numeric_columns:
+        elif string_columns and numeric_columns:
+            # Generic distribution chart
             charts.append(ChartSpec(
                 type=ChartType.BAR,
-                title=f"{numeric_columns[0].name} by {string_columns[0].name}",
+                title=f"{numeric_columns[0].name.title()} by {string_columns[0].name.title()}",
                 x={"column": string_columns[0].name},
                 series=[
-                    ChartSeries(
-                        label=numeric_columns[0].name,
-                        metric="sum",
-                        column=numeric_columns[0].name
-                    )
+                    ChartSeries(label=numeric_columns[0].name.title(), metric="sum", column=numeric_columns[0].name)
                 ],
                 description=f"Distribution of {numeric_columns[0].name} across {string_columns[0].name}"
             ))
         
-        # Basic table
+        return charts
+    
+    def _create_tables_for_report_type(self, report_type: Dict[str, Any], data_profile: DataProfile) -> List[TableSpec]:
+        """Create appropriate tables based on report type."""
         tables = []
+        
         if data_profile.columns:
-            table_columns = [col.name for col in data_profile.columns[:5]]  # First 5 columns
+            # Create a summary table with key columns
+            key_columns = [col.name for col in data_profile.columns[:5]]  # First 5 columns
             tables.append(TableSpec(
-                title="Data Summary",
-                columns=table_columns,
+                title=f"{report_type['title']} - Data Summary",
+                columns=key_columns,
                 limit=20,
                 zebra_rows=True,
-                description="Summary of the dataset"
+                description=f"Summary data for {report_type['name'].replace('_', ' ').title()}"
             ))
         
-        return ReportSpec(
-            title=f"Report: {user_description[:50]}...",
-            kpis=kpis,
-            charts=charts,
-            tables=tables,
-            narrative_goals=[
-                "Provide overview of the available data",
-                "Identify key patterns and trends"
-            ],
-            description="Fallback report generated due to AI planning error"
-        )
+        return tables
+    
+    def _create_narrative_for_report_type(self, report_type: Dict[str, Any], data_profile: DataProfile) -> List[str]:
+        """Create narrative goals based on report type."""
+        if report_type['name'] == 'budget_performance':
+            return [
+                "Analyze budget performance across departments",
+                "Identify areas of over/under spending",
+                "Provide recommendations for budget optimization"
+            ]
+        elif report_type['name'] == 'financial_summary':
+            return [
+                "Summarize key financial metrics",
+                "Identify revenue and expense patterns",
+                "Highlight financial performance insights"
+            ]
+        elif report_type['name'] == 'operational_metrics':
+            return [
+                "Assess operational performance indicators",
+                "Identify areas for improvement",
+                "Track progress against targets"
+            ]
+        elif report_type['name'] == 'trend_analysis':
+            return [
+                "Identify key trends and patterns",
+                "Analyze seasonal variations",
+                "Forecast future performance"
+            ]
+        else:
+            return [
+                "Provide comprehensive data overview",
+                "Identify key patterns and insights",
+                "Support data-driven decision making"
+            ]
 
 
 def create_sample_ai_plan() -> Dict[str, Any]:
