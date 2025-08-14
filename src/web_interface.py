@@ -43,6 +43,27 @@ def ensure_json_serializable(obj):
         logger.error(f"Error in ensure_json_serializable for {type(obj)}: {e}")
         return str(obj)  # Fallback to string representation
 
+# Test the serialization function
+def test_serialization():
+    """Test the ensure_json_serializable function."""
+    try:
+        test_data = {
+            'int64': np.int64(42),
+            'float64': np.float64(3.14),
+            'array': np.array([1, 2, 3]),
+            'normal': 'string',
+            'number': 123
+        }
+        result = ensure_json_serializable(test_data)
+        logger.info("Serialization test passed")
+        return True
+    except Exception as e:
+        logger.error(f"Serialization test failed: {e}")
+        return False
+
+# Run the test
+test_serialization()
+
 # Try relative imports first, fall back to absolute for standalone testing
 try:
     from .data_processor import DataProcessor, create_sample_data_profile, DataProfile
