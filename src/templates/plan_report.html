@@ -1,0 +1,337 @@
+{% extends "base.html" %}
+
+{% block title %}Plan Report - Gov-Report-AI{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold gov-primary mb-2">Plan Your Report</h1>
+            <p class="text-gray-600">Describe what you need and let AI generate the perfect report specification</p>
+        </div>
+        <a href="{{ url_for('index') }}" class="btn-secondary">
+            <i class="fas fa-arrow-left mr-2"></i>Back to Upload
+        </a>
+    </div>
+</div>
+
+<div class="grid lg:grid-cols-2 gap-8">
+    <!-- Data Profile Section -->
+    <div class="card">
+        <h2 class="text-xl font-semibold gov-primary mb-4">
+            <i class="fas fa-database mr-2"></i>Your Data Profile
+        </h2>
+        
+        <div class="space-y-4">
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="font-medium text-gray-700">Dataset Summary</span>
+                    <span class="text-sm text-gray-500">{{ data_profile.row_count }} rows × {{ data_profile.column_count }} columns</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-sm">
+                    <div><span class="font-medium">Columns:</span> {{ data_profile.column_count }}</div>
+                    <div><span class="font-medium">Rows:</span> {{ data_profile.row_count }}</div>
+                </div>
+            </div>
+            
+            <div>
+                <h3 class="font-medium text-gray-700 mb-2">Column Analysis</h3>
+                <div class="space-y-2">
+                    {% for column in data_profile.columns %}
+                    <div class="flex items-center justify-between p-2 bg-white border rounded">
+                        <div class="flex items-center">
+                            <span class="w-3 h-3 rounded-full mr-2 
+                                {% if column.type == 'string' %}bg-blue-400
+                                {% elif column.type == 'number' %}bg-green-400
+                                {% elif column.type == 'currency' %}bg-yellow-400
+                                {% elif column.type == 'percent' %}bg-purple-400
+                                {% elif column.type == 'date' %}bg-red-400
+                                {% else %}bg-gray-400{% endif %}"></span>
+                            <span class="font-medium">{{ column.name }}</span>
+                        </div>
+                        <div class="text-sm text-gray-500">
+                            <span class="capitalize">{{ column.type }}</span>
+                            <span class="ml-2">({{ column.stats.unique_count }} unique)</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Planning Section -->
+    <div class="card">
+        <h2 class="text-xl font-semibold gov-primary mb-4">
+            <i class="fas fa-magic mr-2"></i>AI Report Planning
+        </h2>
+        
+        <form id="planningForm" class="space-y-4">
+            <div>
+                <label for="user_description" class="form-label">Describe Your Report</label>
+                <textarea id="user_description" name="user_description" rows="4" 
+                          class="form-input" placeholder="e.g., Create a budget performance report showing department spending and variances, with charts comparing budget vs actual and a summary table of all departments"
+                          required></textarea>
+                <p class="text-sm text-gray-500 mt-1">Be specific about what you want to see in your report</p>
+            </div>
+            
+            <div>
+                <label for="template_hint" class="form-label">Template Hint (Optional)</label>
+                <select id="template_hint" name="template_hint" class="form-input">
+                    <option value="">No specific template</option>
+                    {% for template_name, template in templates.items() %}
+                    <option value="{{ template_name }}">{{ template.title }}</option>
+                    {% endfor %}
+                </select>
+                <p class="text-sm text-gray-500 mt-1">Choose a template to guide the AI planning</p>
+            </div>
+            
+            <div class="pt-4">
+                <button type="submit" id="planButton" class="btn-primary w-full">
+                    <i class="fas fa-brain mr-2"></i>Generate Report Plan
+                </button>
+            </div>
+        </form>
+        
+        <!-- AI Status Indicator -->
+        {% if ai_available %}
+        <div class="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <div class="flex items-center text-green-700">
+                <i class="fas fa-check-circle mr-2"></i>
+                <span class="text-sm">AI planning is available and will be used for your request</span>
+            </div>
+        </div>
+        {% else %}
+        <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div class="flex items-center text-yellow-700">
+                <i class="fas fa-exclamation-triangle mr-2"></i>
+                <span class="text-sm">AI planning not available. Using template-based planning instead.</span>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Results Section -->
+<div id="resultsSection" class="card mt-8 hidden">
+    <h2 class="text-xl font-semibold gov-primary mb-4">
+        <i class="fas fa-chart-line mr-2"></i>Generated Report Plan
+    </h2>
+    
+    <div id="resultsContent" class="space-y-6">
+        <!-- Results will be populated here -->
+    </div>
+    
+    <div class="mt-6 pt-6 border-t border-gray-200">
+        <div class="flex space-x-4">
+            <button onclick="downloadReportSpec()" class="btn-secondary">
+                <i class="fas fa-download mr-2"></i>Download Specification
+            </button>
+            <button onclick="previewReport()" class="btn-primary">
+                <i class="fas fa-eye mr-2"></i>Preview Report
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen">
+        <div class="bg-white rounded-lg p-8 text-center">
+            <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <h3 class="text-lg font-semibold text-gray-800 mb-2">Generating Report Plan</h3>
+            <p class="text-gray-600">This may take a few moments...</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const csvData = `{{ csv_content | safe }}`;
+const dataProfile = {{ data_profile | tojson }};
+
+document.getElementById('planningForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const userDescription = formData.get('user_description');
+    const templateHint = formData.get('template_hint');
+    
+    if (!userDescription.trim()) {
+        showAlert('Please describe what kind of report you need', 'error');
+        return;
+    }
+    
+    // Show loading
+    document.getElementById('loadingOverlay').classList.remove('hidden');
+    document.getElementById('planButton').disabled = true;
+    
+    try {
+        const response = await fetch('/api/plan-report', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                user_description: userDescription,
+                data: csvData,
+                template_hint: templateHint
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            displayResults(result);
+            showAlert('Report plan generated successfully!', 'success');
+        } else {
+            showAlert(result.error || 'Failed to generate report plan', 'error');
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        showAlert('An error occurred while generating the report plan', 'error');
+    } finally {
+        // Hide loading
+        document.getElementById('loadingOverlay').classList.add('hidden');
+        document.getElementById('planButton').disabled = false;
+    }
+});
+
+function displayResults(result) {
+    const resultsSection = document.getElementById('resultsSection');
+    const resultsContent = document.getElementById('resultsContent');
+    
+    const reportSpec = result.report_spec;
+    
+    resultsContent.innerHTML = `
+        <div class="grid md:grid-cols-2 gap-6">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-800 mb-3">Report Overview</h3>
+                <div class="space-y-3">
+                    <div>
+                        <span class="font-medium text-gray-700">Title:</span>
+                        <p class="text-gray-800">${reportSpec.title}</p>
+                    </div>
+                    <div>
+                        <span class="font-medium text-gray-700">Description:</span>
+                        <p class="text-gray-800">${reportSpec.description || 'No description provided'}</p>
+                    </div>
+                    <div>
+                        <span class="font-medium text-gray-700">Generated by:</span>
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            result.ai_generated ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                        }">
+                            ${result.ai_generated ? 'AI Planning' : 'Template Planning'}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <div>
+                <h3 class="text-lg font-semibold text-gray-800 mb-3">Report Components</h3>
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                        <span class="font-medium text-blue-800">KPIs</span>
+                        <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm font-medium">
+                            ${reportSpec.kpis.length}
+                        </span>
+                    </div>
+                    <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                        <span class="font-medium text-green-800">Charts</span>
+                        <span class="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm font-medium">
+                            ${reportSpec.charts.length}
+                        </span>
+                    </div>
+                    <div class="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+                        <span class="font-medium text-purple-800">Tables</span>
+                        <span class="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-sm font-medium">
+                            ${reportSpec.tables.length}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        ${reportSpec.kpis.length > 0 ? `
+        <div class="mt-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-3">Key Performance Indicators</h3>
+            <div class="grid md:grid-cols-2 gap-4">
+                ${reportSpec.kpis.map(kpi => `
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                        <div class="font-medium text-gray-800">${kpi.label}</div>
+                        <div class="text-sm text-gray-600">
+                            ${kpi.metric} of ${kpi.column || 'N/A'}
+                            ${kpi.format ? `(${kpi.format})` : ''}
+                        </div>
+                        ${kpi.description ? `<div class="text-xs text-gray-500 mt-1">${kpi.description}</div>` : ''}
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+        ` : ''}
+        
+        ${reportSpec.charts.length > 0 ? `
+        <div class="mt-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-3">Charts</h3>
+            <div class="space-y-4">
+                ${reportSpec.charts.map(chart => `
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                        <div class="font-medium text-gray-800">${chart.title}</div>
+                        <div class="text-sm text-gray-600">
+                            Type: ${chart.type} | X-axis: ${chart.x.column}
+                        </div>
+                        ${chart.description ? `<div class="text-xs text-gray-500 mt-1">${chart.description}</div>` : ''}
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+        ` : ''}
+        
+        ${reportSpec.tables.length > 0 ? `
+        <div class="mt-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-3">Tables</h3>
+            <div class="space-y-4">
+                ${reportSpec.tables.map(table => `
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                        <div class="font-medium text-gray-800">${table.title}</div>
+                        <div class="text-sm text-gray-600">
+                            Columns: ${table.columns.join(', ')} | Limit: ${table.limit || 'No limit'}
+                        </div>
+                        ${table.description ? `<div class="text-xs text-gray-500 mt-1">${table.description}</div>` : ''}
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+        ` : ''}
+        
+        ${reportSpec.narrative_goals.length > 0 ? `
+        <div class="mt-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-3">Narrative Goals</h3>
+            <div class="space-y-2">
+                ${reportSpec.narrative_goals.map(goal => `
+                    <div class="p-3 bg-blue-50 rounded-lg">
+                        <div class="text-sm text-blue-800">${goal}</div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+        ` : ''}
+    `;
+    
+    resultsSection.classList.remove('hidden');
+    resultsSection.scrollIntoView({ behavior: 'smooth' });
+}
+
+function downloadReportSpec() {
+    // Implementation for downloading the report specification
+    showAlert('Download functionality coming soon!', 'info');
+}
+
+function previewReport() {
+    // Implementation for previewing the generated report
+    showAlert('Report preview functionality coming soon!', 'info');
+}
+</script>
+{% endblock %}

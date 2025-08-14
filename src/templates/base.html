@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Gov-Report-AI{% endblock %}</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Custom CSS for government styling -->
+    <style>
+        .gov-primary { color: #1a365d; }
+        .gov-secondary { color: #2d3748; }
+        .gov-accent { color: #3182ce; }
+        .gov-success { color: #38a169; }
+        .gov-warning { color: #d69e2e; }
+        .gov-error { color: #e53e3e; }
+        
+        .gov-bg-primary { background-color: #f7fafc; }
+        .gov-bg-secondary { background-color: #edf2f7; }
+        .gov-bg-accent { background-color: #ebf8ff; }
+        
+        .gov-border { border-color: #e2e8f0; }
+        .gov-shadow { box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06); }
+        
+        .btn-primary {
+            @apply bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+        }
+        
+        .btn-secondary {
+            @apply bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+        }
+        
+        .btn-success {
+            @apply bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+        }
+        
+        .card {
+            @apply bg-white rounded-lg shadow-md border border-gray-200 p-6;
+        }
+        
+        .form-input {
+            @apply w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+        }
+        
+        .form-label {
+            @apply block text-sm font-medium text-gray-700 mb-2;
+        }
+        
+        .alert {
+            @apply p-4 rounded-md mb-4;
+        }
+        
+        .alert-success {
+            @apply bg-green-50 border border-green-200 text-green-800;
+        }
+        
+        .alert-error {
+            @apply bg-red-50 border border-red-200 text-red-800;
+        }
+        
+        .alert-warning {
+            @apply bg-yellow-50 border border-yellow-200 text-yellow-800;
+        }
+        
+        .alert-info {
+            @apply bg-blue-50 border border-blue-200 text-blue-800;
+        }
+    </style>
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="gov-bg-primary min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-md border-b gov-border">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <a href="{{ url_for('index') }}" class="text-2xl font-bold gov-primary">
+                            <i class="fas fa-chart-line mr-2"></i>Gov-Report-AI
+                        </a>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="{{ url_for('index') }}" class="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
+                        <i class="fas fa-home mr-1"></i>Home
+                    </a>
+                    <a href="{{ url_for('about') }}" class="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
+                        <i class="fas fa-info-circle mr-1"></i>About
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'success' if category == 'success' else 'error' if category == 'error' else 'info' }}">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                {% if category == 'success' %}
+                                    <i class="fas fa-check-circle text-green-400"></i>
+                                {% elif category == 'error' %}
+                                    <i class="fas fa-exclamation-circle text-red-400"></i>
+                                {% else %}
+                                    <i class="fas fa-info-circle text-blue-400"></i>
+                                {% endif %}
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm">{{ message }}</p>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t gov-border mt-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="text-center text-gray-500">
+                <p>&copy; 2024 Gov-Report-AI. AI-powered government report generation.</p>
+                <p class="mt-2 text-sm">
+                    Built with <i class="fas fa-heart text-red-500"></i> for government efficiency
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Global utility functions
+        function showLoading(elementId) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Processing...';
+                element.disabled = true;
+            }
+        }
+        
+        function hideLoading(elementId, originalText) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.innerHTML = originalText;
+                element.disabled = false;
+            }
+        }
+        
+        function showAlert(message, type = 'info') {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} fixed top-4 right-4 z-50 max-w-md`;
+            alertDiv.innerHTML = `
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-${type === 'success' ? 'check-circle text-green-400' : type === 'error' ? 'exclamation-circle text-red-400' : 'info-circle text-blue-400'}"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm">${message}</p>
+                    </div>
+                    <div class="ml-auto pl-3">
+                        <button onclick="this.parentElement.parentElement.parentElement.remove()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(alertDiv);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (alertDiv.parentElement) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+    </script>
+    
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>
