@@ -204,14 +204,14 @@ IMPORTANT: Only use columns that exist in the available data. Respond with ONLY 
                 
                 try:
                     data = json.loads(response)
+                    logger.info(f"Successfully parsed JSON with keys: {list(data.keys())}")
                 except json.JSONDecodeError as e:
                     logger.error(f"Failed to parse JSON response: {e}")
                     logger.error(f"Response content: {response}")
                     raise ValueError(f"Invalid JSON response: {e}")
             else:
                 data = response
-            
-            logger.info(f"Successfully parsed JSON with keys: {list(data.keys())}")
+                logger.info(f"Response was already parsed: {type(data)}")
             
             # Extract KPIs
             kpis = []
@@ -279,6 +279,8 @@ IMPORTANT: Only use columns that exist in the available data. Respond with ONLY 
             
         except Exception as e:
             logger.error(f"Error parsing AI response: {e}")
+            logger.error(f"Response type: {type(response)}")
+            logger.error(f"Response content: {response}")
             raise ValueError(f"Failed to parse AI response: {e}")
     
     def _fix_validation_errors(
