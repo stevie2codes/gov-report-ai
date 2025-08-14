@@ -23,18 +23,25 @@ logger = logging.getLogger(__name__)
 
 def ensure_json_serializable(obj):
     """Convert numpy types and other non-JSON-serializable objects to standard Python types."""
-    if isinstance(obj, dict):
-        return {key: ensure_json_serializable(value) for key, value in obj.items()}
-    elif isinstance(obj, list):
-        return [ensure_json_serializable(item) for item in obj]
-    elif isinstance(obj, np.integer):
-        return int(obj)
-    elif isinstance(obj, np.floating):
-        return float(obj)
-    elif isinstance(obj, np.ndarray):
-        return obj.tolist()
-    else:
-        return obj
+    try:
+        if isinstance(obj, dict):
+            return {key: ensure_json_serializable(value) for key, value in obj.items()}
+        elif isinstance(obj, list):
+            return [ensure_json_serializable(item) for item in obj]
+        elif isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif hasattr(obj, 'dtype'):  # Catch any other numpy-like objects
+            logger.warning(f"Found numpy-like object with dtype: {obj.dtype}, converting to Python type")
+            return obj.item() if hasattr(obj, 'item') else str(obj)
+        else:
+            return obj
+    except Exception as e:
+        logger.error(f"Error in ensure_json_serializable for {type(obj)}: {e}")
+        return str(obj)  # Fallback to string representation
 
 # Try relative imports first, fall back to absolute for standalone testing
 try:
@@ -124,10 +131,26 @@ def register_routes(app, data_processor, ai_planner):
                     
                     # Store both profiles in session
                     session['csv_content'] = file_content
-                    session['full_data_profile'] = ensure_json_serializable(full_profile.to_dict())
-                    session['ai_data_profile'] = ensure_json_serializable(ai_profile.to_dict())
-                    session['data_profile'] = ensure_json_serializable(ai_profile.to_dict())  # Keep for backward compatibility
+                    
+                    # Debug: Log the types before serialization
+                    full_profile_dict = full_profile.to_dict()
+                    ai_profile_dict = ai_profile.to_dict()
+                    
+                    logger.info(f"Full profile dict types: {type(full_profile_dict)}")
+                    logger.info(f"AI profile dict types: {type(ai_profile_dict)}")
+                    logger.info(f"Recommendations types: {type(recommendations)}")
+                    
+                    # Ensure all data is JSON serializable
+                    session['full_data_profile'] = ensure_json_serializable(full_profile_dict)
+                    session['ai_data_profile'] = ensure_json_serializable(ai_profile_dict)
+                    session['data_profile'] = ensure_json_serializable(ai_profile_dict)  # Keep for backward compatibility
                     session['processing_recommendations'] = ensure_json_serializable(recommendations)
+                    
+                    # Debug: Log the types after serialization
+                    logger.info(f"Session data types after serialization:")
+                    for key, value in session.items():
+                        if key != 'csv_content':  # Skip the large CSV content
+                            logger.info(f"  {key}: {type(value)}")
                     
                     logger.info("All data stored in session successfully")
                     

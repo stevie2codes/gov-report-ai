@@ -126,7 +126,7 @@ class DataProfile:
         
         # Estimate AI token usage (rough calculation)
         total_chars = sum(len(str(val)) for col in self.columns for val in col.sample_values)
-        recommendations['estimated_ai_tokens'] = total_chars // 4  # Rough token estimate
+        recommendations['estimated_ai_tokens'] = int(total_chars // 4)  # Ensure it's a Python int
         
         return recommendations
 
