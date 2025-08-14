@@ -1,0 +1,253 @@
+# Cursor Rules for Gov-Report-AI Project
+
+# Cursor Project Context – GovReport AI
+
+## Project Vision
+
+Build a micro-SaaS for **government report generation** that transforms CSV/XLSX into **legacy-format, compliance-ready** reports in PDF/DOCX.  
+Core differentiator: **matches the exact style of 20-year-old printable paper like government reports** while adding speed, accessibility, and AI-driven report planning.
+
+## Audience
+
+City, county, and state agencies:
+
+- Finance
+- Public works
+- Public health
+- Permitting
+- Police / public safety
+
+## Core Features (MVP)
+
+1. **File Upload**
+   - Accept CSV/XLSX
+   - Parse first 50 rows
+   - Infer column types: string, number, date, currency, percent
+2. **AI Report Planning**
+   - User describes report in natural language
+   - AI outputs `ReportSpec` (KPIs, charts, tables, narrative goals)
+   - Validate against `DataProfile`
+3. **Report Rendering**
+   - Charts: Bar, Line, Pie (with limits)
+   - Tables: zebra rows optional, right-aligned numbers, thousands separators
+   - Header/footer with seal, title, date, page numbers
+4. **Export**
+   - Tagged PDF (PDF/UA compliant where possible)
+   - DOCX (editable in Word)
+5. **Legacy Templates**
+   - Budget vs Actual
+   - Balance sheet
+   - 311 Response Times
+   - Permits Issued
+   - Crime Stats
+   - Public Health Summary
+6. **Accessibility**
+   - Alt text for charts
+   - High-contrast mode
+   - WCAG AA color contrast
+
+## Stack
+
+- **Frontend**: Next.js + TypeScript
+- **Charts**: Recharts
+- **Parsing**: Papaparse, SheetJS
+- **Export**: pdf-lib, docx
+- **Styling**: TailwindCSS (with gov-safe token system)
+- **AI**: API route `/api/plan-report` calling LLM with strict prompt + JSON schema
+
+## Styling Rules
+
+    •	Fonts: Times New Roman or Arial, 11–12 pt
+    •	Margins: Normal/wide per template
+    •	No gradients, no shadows, no 3D
+    •	Gridlines ON for all charts
+    •	Required source line & methodology section
+    •	Page footer: page X of Y
+
+## Development Phases
+
+    1.	Setup repo, install deps, add file upload + parser
+    2.	Build DataProfile inference
+    3.	AI planning API (/api/plan-report)
+    4.	Report renderer (charts, tables, layout)
+    5.	Export engine (PDF, DOCX)
+    6.	Template packs + branding kit
+    7.	Accessibility pass
+
+Output Expectation
+
+## Key Types
+
+```ts
+type ColumnProfile = {
+  name: string;
+  type: 'string' | 'number' | 'date' | 'currency' | 'percent';
+  sampleValues: string[];
+};
+
+type DataProfile = {
+  columns: ColumnProfile[];
+};
+
+type KPI = {
+  label: string;
+  metric: 'sum' | 'avg' | 'min' | 'max' | 'count' | 'formula';
+  column?: string;
+  filter?: Record<string, any>;
+  format?: 'currency' | 'percent' | 'number';
+};
+
+type ChartSpec = {
+  type: 'bar' | 'line' | 'pie';
+  title: string;
+  x: { column: string; granularity?: string };
+  series: { label: string; metric: string; column: string; filter?: Record<string, any> }[];
+  sort?: { by: string; order: 'asc' | 'desc' };
+  limit?: number;
+};
+
+type TableSpec = {
+  title: string;
+  columns: string[];
+  sort?: { by: string; order: 'asc' | 'desc' };
+  limit?: number;
+};
+
+type ReportSpec = {
+  title: string;
+  kpis: KPI[];
+  charts: ChartSpec[];
+  tables: TableSpec[];
+  narrativeGoals: string[];
+};
+
+## Project Overview
+
+This is an AI-powered tool for analyzing and generating government reports. The project uses Python and follows modern development practices.
+
+## Code Style & Standards
+
+### Python Conventions
+
+- Use Python 3.8+ syntax and features
+- Follow PEP 8 style guidelines
+- Use type hints where appropriate
+- Prefer f-strings over .format() or % formatting
+- Use snake_case for variables and functions
+- Use PascalCase for classes
+- Use UPPER_CASE for constants
+
+### Import Organization
+
+- Standard library imports first
+- Third-party imports second
+- Local imports last
+- Separate groups with blank lines
+- Use absolute imports for project modules
+
+### Documentation
+
+- Use docstrings for all public functions and classes
+- Follow Google-style docstring format
+- Include type information in docstrings
+- Add inline comments for complex logic
+
+## Project Structure
+
+
+
+## AI/ML Best Practices
+
+- Use environment variables for API keys and sensitive data
+- Implement proper error handling for API calls
+- Add rate limiting and retry logic for external services
+- Use async/await for I/O operations when appropriate
+- Implement proper logging for debugging and monitoring
+
+## Testing Requirements
+
+- Write unit tests for all new functionality
+- Use pytest as the testing framework
+- Aim for high test coverage
+- Mock external API calls in tests
+- Use descriptive test names
+
+## Security Considerations
+
+- Never commit API keys or secrets
+- Use .env files for local configuration
+- Validate all user inputs
+- Implement proper authentication if building web interfaces
+- Follow OWASP security guidelines
+
+## Performance Guidelines
+
+- Use generators for large data processing
+- Implement caching where appropriate
+- Profile code before optimization
+- Use async operations for I/O-bound tasks
+- Consider memory usage for large datasets
+
+## Error Handling
+
+- Use specific exception types
+- Provide meaningful error messages
+- Log errors with appropriate context
+- Implement graceful degradation
+- Don't expose sensitive information in error messages
+
+## Code Quality
+
+- Use Black for code formatting
+- Use flake8 for linting
+- Use mypy for type checking
+- Keep functions focused and single-purpose
+- Limit function complexity (max 10-15 lines when possible)
+
+## Git Practices
+
+- Use descriptive commit messages
+- Create feature branches for new development
+- Keep commits atomic and focused
+- Use conventional commit format when possible
+
+## Dependencies
+
+- Keep requirements.txt updated
+- Pin major version numbers
+- Document why specific versions are needed
+- Consider using requirements-dev.txt for development dependencies
+
+## When Adding New Features
+
+1. Update requirements.txt if new packages are needed
+2. Add appropriate tests
+3. Update documentation
+4. Consider backward compatibility
+5. Add logging for debugging
+
+## When Refactoring
+
+- Maintain existing functionality
+- Update tests to reflect changes
+- Update documentation
+- Consider impact on other modules
+- Test thoroughly before committing
+
+## API Design (if building APIs)
+
+- Use RESTful conventions
+- Implement proper HTTP status codes
+- Add request/response validation
+- Include rate limiting
+- Provide comprehensive error responses
+- Use consistent naming conventions
+
+## Database Considerations (if applicable)
+
+- Use migrations for schema changes
+- Implement proper indexing
+- Consider data privacy and GDPR compliance
+- Use parameterized queries to prevent SQL injection
+- Implement proper backup strategies
+```
