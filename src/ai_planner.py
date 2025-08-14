@@ -99,7 +99,7 @@ class AIReportPlanner:
         profile_json = json.dumps(data_profile.to_dict(), indent=2)
         
         prompt = f"""
-You are an expert government report planner with deep expertise in data analysis, government operations, and regulatory compliance. Your task is to convert a natural language description into a sophisticated, actionable report specification that leverages GPT-5's advanced capabilities.
+You are an expert government report planner. Generate a JSON response for this report specification.
 
 AVAILABLE DATA:
 {profile_json}
@@ -108,118 +108,72 @@ USER REQUEST:
 {user_description}
 
 TEMPLATE HINT:
-{template_hint or 'No specific template requested - use your expertise to determine the best approach'}
+{template_hint or 'No specific template requested'}
 
-TASK:
-Generate a comprehensive JSON response that matches this exact schema, leveraging GPT-5's advanced reasoning:
+Generate a JSON response that matches this schema:
 
 {{
-  "title": "Professional, government-appropriate report title",
-  "description": "Detailed description explaining the report's purpose and value",
+  "title": "Report title",
+  "description": "Brief description of the report",
   "kpis": [
     {{
-      "label": "Professional KPI label",
+      "label": "KPI label",
       "metric": "sum|avg|min|max|count|formula",
       "column": "column_name",
-      "filter": {{"optional": "advanced_filtering_logic"}},
+      "filter": {{"optional": "filtering"}},
       "format": "currency|percent|number|date|string",
-      "description": "Clear explanation of what this KPI measures and why it matters"
+      "description": "What this KPI measures"
     }}
   ],
   "charts": [
     {{
-      "type": "bar|line|pie|area|scatter|radar",
-      "title": "Professional chart title",
+      "type": "bar|line|pie",
+      "title": "Chart title",
       "x": {{"column": "x_axis_column", "granularity": "optional_time_granularity"}},
       "series": [
         {{
-          "label": "Professional series label",
+          "label": "Series label",
           "metric": "sum|avg|min|max|count",
           "column": "data_column",
-          "filter": {{"optional": "advanced_filtering"}},
+          "filter": {{"optional": "filtering"}},
           "color": "optional_color"
         }}
       ],
       "sort": {{"by": "column_name", "order": "asc|desc"}},
       "limit": 10,
-      "description": "Clear explanation of what insights this chart provides"
+      "description": "What this chart shows"
     }}
   ],
   "tables": [
     {{
-      "title": "Professional table title",
+      "title": "Table title",
       "columns": ["col1", "col2", "col3"],
       "sort": {{"by": "column_name", "order": "asc|desc"}},
       "limit": 20,
       "zebra_rows": true,
-      "description": "Clear explanation of what this table shows and its value"
+      "description": "What this table shows"
     }}
   ],
   "narrative_goals": [
-    "Strategic Goal 1: What high-level insights should this report provide",
-    "Operational Goal 2: What specific actions should it enable",
-    "Compliance Goal 3: What regulatory or policy requirements should it address",
-    "Stakeholder Goal 4: What information do different audiences need"
+    "Goal 1: What insights should this report provide",
+    "Goal 2: What actions should it enable"
   ],
-  "template": "suggested_template_name",
-  "data_insights": [
-    "Key insight 1: What patterns or anomalies should be highlighted",
-    "Key insight 2: What trends or correlations should be analyzed",
-    "Key insight 3: What benchmarks or comparisons would be valuable"
-  ],
-  "recommendations": [
-    "Recommendation 1: Specific, actionable next steps",
-    "Recommendation 2: Policy or process improvements",
-    "Recommendation 3: Resource allocation or budget considerations"
-  ]
+  "template": "suggested_template_name"
 }}
 
-ADVANCED REQUIREMENTS (GPT-5 Capabilities):
-1. **Data Intelligence**: Analyze the data profile to identify the most meaningful patterns, correlations, and insights
-2. **Government Context**: Consider regulatory requirements, compliance needs, and public accountability
-3. **Stakeholder Analysis**: Design reports that serve multiple audiences (executives, managers, staff, public)
-4. **Actionable Insights**: Focus on metrics and visualizations that drive decision-making
-5. **Risk Assessment**: Identify potential issues, anomalies, or areas requiring attention
-6. **Performance Benchmarking**: Suggest appropriate comparisons and targets
-7. **Trend Analysis**: Leverage temporal data for forecasting and planning
-8. **Cost-Benefit Analysis**: Where applicable, include efficiency and ROI metrics
-
-CHART SELECTION INTELLIGENCE:
-- **Bar Charts**: For categorical comparisons, department performance, budget vs actual
-- **Line Charts**: For time series, trends, progress over time
-- **Pie Charts**: For composition analysis, budget allocation, resource distribution
-- **Area Charts**: For cumulative data, stacked comparisons
-- **Scatter Plots**: For correlation analysis, outlier detection
-- **Radar Charts**: For multi-dimensional performance assessment
-
-KPI INTELLIGENCE:
-- **Financial KPIs**: Revenue, expenses, variance, efficiency ratios
-- **Operational KPIs**: Performance metrics, response times, quality scores
-- **Compliance KPIs**: Audit results, violation rates, completion percentages
-- **Strategic KPIs**: Goal achievement, milestone progress, strategic alignment
-
-IMPORTANT RULES:
-1. **Data Validation**: Only use columns that exist in the available data
-2. **Government Standards**: Follow government reporting best practices
-3. **Accessibility**: Ensure reports are clear for diverse audiences
-4. **Actionability**: Every metric should support decision-making
-5. **Compliance**: Consider regulatory and policy requirements
-6. **Efficiency**: Focus on high-impact, low-effort insights
-7. **Innovation**: Leverage GPT-5's capabilities for creative analysis approaches
-
-RESPOND WITH ONLY THE JSON, no other text. Make this report specification exceptional and government-ready.
+IMPORTANT: Only use columns that exist in the available data. Respond with ONLY the JSON, no other text.
 """
         return prompt
     
     def _call_openai_api(self, prompt: str) -> str:
-        """Call OpenAI API to generate the report plan using GPT-5's advanced capabilities."""
+        """Call OpenAI API to generate the report plan using GPT-4o's advanced capabilities."""
         try:
             response = self.client.chat.completions.create(
-                model="gpt-5",
+                model="gpt-4o",
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are an expert government report planner with deep expertise in data analysis, government operations, and regulatory compliance. Always respond with valid JSON matching the exact schema provided. Leverage GPT-5's advanced reasoning capabilities to create exceptional, government-ready report specifications."
+                        "content": "You are an expert government report planner. Always respond with valid JSON matching the exact schema provided. Leverage GPT-4o's advanced reasoning capabilities to create exceptional, government-ready report specifications."
                     },
                     {
                         "role": "user",
@@ -227,7 +181,7 @@ RESPOND WITH ONLY THE JSON, no other text. Make this report specification except
                     }
                 ],
                 temperature=0.2,  # Lower temperature for more consistent, professional output
-                max_completion_tokens=3000,  # Increased for more comprehensive reports
+                max_tokens=3000,  # Increased for more comprehensive reports
                 response_format={"type": "json_object"},
                 top_p=0.9,  # Focus on most relevant responses
                 frequency_penalty=0.1,  # Encourage diverse, creative solutions
@@ -244,11 +198,25 @@ RESPOND WITH ONLY THE JSON, no other text. Make this report specification except
     def _parse_ai_response(self, response: str, data_profile: DataProfile) -> ReportSpec:
         """Parse the AI response into a ReportSpec object."""
         try:
+            logger.info(f"Parsing AI response: {response[:200]}...")  # Log first 200 chars
+            
             # Parse JSON response
             if isinstance(response, str):
-                data = json.loads(response)
+                # Check if it's an error message
+                if "error" in response.lower() or "failed" in response.lower():
+                    logger.error(f"AI returned error message: {response}")
+                    raise ValueError(f"AI returned error: {response}")
+                
+                try:
+                    data = json.loads(response)
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse JSON response: {e}")
+                    logger.error(f"Response content: {response}")
+                    raise ValueError(f"Invalid JSON response: {e}")
             else:
                 data = response
+            
+            logger.info(f"Successfully parsed JSON with keys: {list(data.keys())}")
             
             # Extract KPIs
             kpis = []
