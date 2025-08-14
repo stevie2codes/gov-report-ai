@@ -1,0 +1,42 @@
+# Jekyll configuration for GitHub Pages
+title: GovReport AI
+description: Government Report Generation Platform powered by AI
+author: GovReport AI Team
+email: contact@govreport.ai
+
+# GitHub Pages settings
+remote_theme: pages-themes/minimal@v0.2.0
+plugins:
+  - jekyll-remote-theme
+
+# Site settings
+url: "https://yourusername.github.io"
+baseurl: "/Gov-report-ai"
+
+# Build settings
+markdown: kramdown
+highlighter: rouge
+
+# Collections
+collections:
+  docs:
+    output: true
+    permalink: /:collection/:name/
+
+# Defaults
+defaults:
+  - scope:
+      path: ""
+      type: "docs"
+    values:
+      layout: "default"
+
+# Exclude from processing
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor/bundle/
+  - vendor/cache/
+  - vendor/gems/
+  - vendor/ruby/
