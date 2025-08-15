@@ -173,7 +173,7 @@ IMPORTANT: Only use columns that exist in the available data. Respond with ONLY 
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are an expert government report planner. Always respond with valid JSON matching the exact schema provided. Leverage GPT-4o's advanced reasoning capabilities to create exceptional, government-ready report specifications."
+                        "content": "You are an expert government report planner. Always respond with valid JSON matching the exact schema provided. Leverage GPT-4o's advanced reasoning capabilities to create exceptional, government-ready report specifications. IMPORTANT: Return ONLY the JSON response, no additional text or explanations."
                     },
                     {
                         "role": "user",
@@ -181,10 +181,12 @@ IMPORTANT: Only use columns that exist in the available data. Respond with ONLY 
                     }
                 ],
                 max_tokens=3000,  # Increased for more comprehensive reports
-                response_format={"type": "json_object"}
+                temperature=0.3  # Lower temperature for more consistent formatting
             )
             
-            return response.choices[0].message.content
+            content = response.choices[0].message.content
+            logger.info(f"OpenAI API response received: {content[:200]}...")
+            return content
             
         except Exception as e:
             logger.error(f"OpenAI API call failed: {e}")
@@ -194,20 +196,40 @@ IMPORTANT: Only use columns that exist in the available data. Respond with ONLY 
         """Parse the AI response and convert it to a ReportSpec object."""
         try:
             logger.info(f"Parsing AI response of type: {type(response)}")
+            logger.info(f"Raw response content: {response}")
             
             # Handle different response formats
             if isinstance(response, str):
-                # Try to parse JSON from string
-                try:
-                    data = json.loads(response)
-                    logger.info(f"Successfully parsed JSON with keys: {list(data.keys())}")
-                except json.JSONDecodeError as e:
-                    logger.error(f"Failed to parse JSON response: {e}")
-                    logger.error(f"Response content: {response}")
-                    raise ValueError(f"Invalid JSON response: {e}")
+                # Try to extract JSON from the response (in case AI added extra text)
+                json_start = response.find('{')
+                json_end = response.rfind('}') + 1
+                
+                if json_start != -1 and json_end > json_start:
+                    json_content = response[json_start:json_end]
+                    logger.info(f"Extracted JSON content from response: {json_content[:200]}...")
+                    
+                    try:
+                        data = json.loads(json_content)
+                        logger.info(f"Successfully parsed extracted JSON with keys: {list(data.keys())}")
+                        logger.info(f"Full parsed response: {json.dumps(data, indent=2)}")
+                    except json.JSONDecodeError as e:
+                        logger.error(f"Failed to parse extracted JSON: {e}")
+                        logger.error(f"Extracted content: {json_content}")
+                        raise ValueError(f"Invalid extracted JSON: {e}")
+                else:
+                    # Try to parse the entire response as JSON
+                    try:
+                        data = json.loads(response)
+                        logger.info(f"Successfully parsed full response as JSON with keys: {list(data.keys())}")
+                        logger.info(f"Full parsed response: {json.dumps(data, indent=2)}")
+                    except json.JSONDecodeError as e:
+                        logger.error(f"Failed to parse response as JSON: {e}")
+                        logger.error(f"Response content: {response}")
+                        raise ValueError(f"Invalid JSON response: {e}")
             else:
                 data = response
                 logger.info(f"Response was already parsed: {type(data)}")
+                logger.info(f"Full parsed response: {json.dumps(data, indent=2)}")
             
             # Validate the response structure
             if not isinstance(data, dict):
