@@ -191,17 +191,13 @@ IMPORTANT: Only use columns that exist in the available data. Respond with ONLY 
             raise
     
     def _parse_ai_response(self, response: str, data_profile: DataProfile) -> ReportSpec:
-        """Parse the AI response into a ReportSpec object."""
+        """Parse the AI response and convert it to a ReportSpec object."""
         try:
-            logger.info(f"Parsing AI response: {response[:200]}...")  # Log first 200 chars
+            logger.info(f"Parsing AI response of type: {type(response)}")
             
-            # Parse JSON response
+            # Handle different response formats
             if isinstance(response, str):
-                # Check if it's an error message
-                if "error" in response.lower() or "failed" in response.lower():
-                    logger.error(f"AI returned error message: {response}")
-                    raise ValueError(f"AI returned error: {response}")
-                
+                # Try to parse JSON from string
                 try:
                     data = json.loads(response)
                     logger.info(f"Successfully parsed JSON with keys: {list(data.keys())}")
@@ -213,69 +209,225 @@ IMPORTANT: Only use columns that exist in the available data. Respond with ONLY 
                 data = response
                 logger.info(f"Response was already parsed: {type(data)}")
             
+            # Validate the response structure
+            if not isinstance(data, dict):
+                raise ValueError(f"Expected dict response, got {type(data)}")
+            
+            required_keys = ["title"]
+            missing_keys = [key for key in required_keys if key not in data]
+            if missing_keys:
+                raise ValueError(f"Missing required keys in AI response: {missing_keys}")
+            
+            logger.info(f"AI response structure validated. Processing {len(data.get('kpis', []))} KPIs, {len(data.get('charts', []))} charts, {len(data.get('tables', []))} tables")
+            
             # Extract KPIs
             kpis = []
-            for kpi_data in data.get("kpis", []):
-                kpi = KPI(
-                    label=kpi_data["label"],
-                    metric=MetricType(kpi_data["metric"]),
-                    column=kpi_data.get("column"),
-                    filter=kpi_data.get("filter"),
-                    format=FormatType(kpi_data["format"]) if kpi_data.get("format") else None,
-                    description=kpi_data.get("description")
-                )
-                kpis.append(kpi)
+            logger.info(f"Processing {len(data.get('kpis', []))} KPIs from AI response")
+            for i, kpi_data in enumerate(data.get("kpis", [])):
+                try:
+                    logger.info(f"Processing KPI {i+1}: {kpi_data}")
+                    
+                    # Validate KPI data structure
+                    if not isinstance(kpi_data, dict):
+                        logger.warning(f"KPI {i+1} is not a dict, skipping: {kpi_data}")
+                        continue
+                    
+                    if "label" not in kpi_data:
+                        logger.warning(f"KPI {i+1} missing label, skipping: {kpi_data}")
+                        continue
+                    
+                    # Handle metric type conversion with better error handling
+                    metric_value = kpi_data.get("metric", "count")
+                    try:
+                        metric = MetricType(metric_value)
+                        logger.info(f"Successfully converted metric type: {metric}")
+                    except ValueError as e:
+                        logger.warning(f"Invalid metric type '{metric_value}', defaulting to 'count': {e}")
+                        metric = MetricType.COUNT
+                    
+                    # Handle format type conversion with better error handling
+                    format_value = kpi_data.get("format")
+                    format_type = None
+                    if format_value:
+                        try:
+                            format_type = FormatType(format_value)
+                            logger.info(f"Successfully converted format type: {format_type}")
+                        except ValueError as e:
+                            logger.warning(f"Invalid format type '{format_value}', skipping format: {e}")
+                    
+                    kpi = KPI(
+                        label=kpi_data["label"],
+                        metric=metric,
+                        column=kpi_data.get("column"),
+                        filter=kpi_data.get("filter"),
+                        format=format_type,
+                        description=kpi_data.get("description")
+                    )
+                    kpis.append(kpi)
+                    logger.info(f"Successfully created KPI: {kpi.label}")
+                except Exception as e:
+                    logger.error(f"Error creating KPI {i+1}: {e}")
+                    logger.error(f"KPI data: {kpi_data}")
+                    # Skip this KPI and continue
+                    continue
             
             # Extract charts
             charts = []
-            for chart_data in data.get("charts", []):
-                series = []
-                for series_data in chart_data.get("series", []):
-                    series_obj = ChartSeries(
-                        label=series_data["label"],
-                        metric=series_data["metric"],
-                        column=series_data["column"],
-                        filter=series_data.get("filter"),
-                        color=series_data.get("color")
+            logger.info(f"Processing {len(data.get('charts', []))} charts from AI response")
+            for i, chart_data in enumerate(data.get("charts", [])):
+                try:
+                    logger.info(f"Processing chart {i+1}: {chart_data}")
+                    
+                    # Validate chart data structure
+                    if not isinstance(chart_data, dict):
+                        logger.warning(f"Chart {i+1} is not a dict, skipping: {chart_data}")
+                        continue
+                    
+                    required_chart_keys = ["title", "x"]
+                    missing_chart_keys = [key for key in required_chart_keys if key not in chart_data]
+                    if missing_chart_keys:
+                        logger.warning(f"Chart {i+1} missing required keys {missing_chart_keys}, skipping: {chart_data}")
+                        continue
+                    
+                    # Validate x-axis data
+                    x_data = chart_data.get("x", {})
+                    if not isinstance(x_data, dict) or "column" not in x_data:
+                        logger.warning(f"Chart {i+1} has invalid x-axis data, skipping: {chart_data}")
+                        continue
+                    
+                    # Process series data
+                    series = []
+                    series_data_list = chart_data.get("series", [])
+                    if not isinstance(series_data_list, list):
+                        logger.warning(f"Chart {i+1} series is not a list, skipping: {chart_data}")
+                        continue
+                    
+                    for j, series_data in enumerate(series_data_list):
+                        try:
+                            if not isinstance(series_data, dict):
+                                logger.warning(f"Chart {i+1} series {j+1} is not a dict, skipping: {series_data}")
+                                continue
+                            
+                            required_series_keys = ["label", "metric", "column"]
+                            missing_series_keys = [key for key in required_series_keys if key not in series_data]
+                            if missing_series_keys:
+                                logger.warning(f"Chart {i+1} series {j+1} missing required keys {missing_series_keys}, skipping: {series_data}")
+                                continue
+                            
+                            series_obj = ChartSeries(
+                                label=series_data["label"],
+                                metric=series_data["metric"],
+                                column=series_data["column"],
+                                filter=series_data.get("filter"),
+                                color=series_data.get("color")
+                            )
+                            series.append(series_obj)
+                            logger.info(f"Successfully created series {j+1} for chart {i+1}")
+                        except Exception as e:
+                            logger.error(f"Error creating series {j+1} for chart {i+1}: {e}")
+                            logger.error(f"Series data: {series_data}")
+                            continue
+                    
+                    # Handle chart type conversion with better error handling
+                    chart_type_value = chart_data.get("type", "unknown")
+                    logger.info(f"Creating chart with type: '{chart_type_value}' (type: {type(chart_type_value)})")
+                    
+                    # Handle chart type conversion with better error handling
+                    try:
+                        chart_type = ChartType(chart_type_value)
+                        logger.info(f"Successfully converted chart type: {chart_type}")
+                    except ValueError as e:
+                        logger.warning(f"Invalid chart type '{chart_type_value}', defaulting to 'bar': {e}")
+                        chart_type = ChartType.BAR
+                    
+                    chart = ChartSpec(
+                        type=chart_type,
+                        title=chart_data["title"],
+                        x=chart_data["x"],
+                        series=series,
+                        sort=chart_data.get("sort"),
+                        limit=chart_data.get("limit"),
+                        description=chart_data.get("description")
                     )
-                    series.append(series_obj)
-                
-                chart = ChartSpec(
-                    type=ChartType(chart_data["type"]),
-                    title=chart_data["title"],
-                    x=chart_data["x"],
-                    series=series,
-                    sort=chart_data.get("sort"),
-                    limit=chart_data.get("limit"),
-                    description=chart_data.get("description")
-                )
-                charts.append(chart)
+                    charts.append(chart)
+                    logger.info(f"Successfully created chart: {chart.title}")
+                except Exception as e:
+                    logger.error(f"Error creating chart {i+1}: {e}")
+                    logger.error(f"Chart data: {chart_data}")
+                    # Skip this chart and continue
+                    continue
             
             # Extract tables
             tables = []
-            for table_data in data.get("tables", []):
-                table = TableSpec(
-                    title=table_data["title"],
-                    columns=table_data["columns"],
-                    sort=table_data.get("sort"),
-                    limit=table_data.get("limit"),
-                    zebra_rows=table_data.get("zebra_rows", False),
-                    description=table_data.get("description")
-                )
-                tables.append(table)
+            logger.info(f"Processing {len(data.get('tables', []))} tables from AI response")
+            for i, table_data in enumerate(data.get("tables", [])):
+                try:
+                    logger.info(f"Processing table {i+1}: {table_data}")
+                    
+                    # Validate table data structure
+                    if not isinstance(table_data, dict):
+                        logger.warning(f"Table {i+1} is not a dict, skipping: {table_data}")
+                        continue
+                    
+                    required_table_keys = ["title", "columns"]
+                    missing_table_keys = [key for key in required_table_keys if key not in table_data]
+                    if missing_table_keys:
+                        logger.warning(f"Table {i+1} missing required keys {missing_table_keys}, skipping: {table_data}")
+                        continue
+                    
+                    # Validate columns data
+                    columns_data = table_data.get("columns", [])
+                    if not isinstance(columns_data, list):
+                        logger.warning(f"Table {i+1} columns is not a list, skipping: {table_data}")
+                        continue
+                    
+                    table = TableSpec(
+                        title=table_data["title"],
+                        columns=table_data["columns"],
+                        sort=table_data.get("sort"),
+                        limit=table_data.get("limit"),
+                        zebra_rows=table_data.get("zebra_rows", False),
+                        description=table_data.get("description")
+                    )
+                    tables.append(table)
+                    logger.info(f"Successfully created table: {table.title}")
+                except Exception as e:
+                    logger.error(f"Error creating table {i+1}: {e}")
+                    logger.error(f"Table data: {table_data}")
+                    # Skip this table and continue
+                    continue
             
             # Create ReportSpec
-            report_spec = ReportSpec(
-                title=data["title"],
-                kpis=kpis,
-                charts=charts,
-                tables=tables,
-                narrative_goals=data.get("narrative_goals", []),
-                template=data.get("template"),
-                description=data.get("description")
-            )
-            
-            return report_spec
+            try:
+                report_spec = ReportSpec(
+                    title=data["title"],
+                    kpis=kpis,
+                    charts=charts,
+                    tables=tables,
+                    narrative_goals=data.get("narrative_goals", []),
+                    template=data.get("template"),
+                    description=data.get("description")
+                )
+                
+                logger.info(f"Successfully created ReportSpec with {len(kpis)} KPIs, {len(charts)} charts, {len(tables)} tables")
+                return report_spec
+                
+            except Exception as e:
+                logger.error(f"Error creating ReportSpec: {e}")
+                logger.error(f"Falling back to minimal ReportSpec")
+                
+                # Create a minimal valid ReportSpec
+                fallback_spec = ReportSpec(
+                    title=data.get("title", "Report Generated from AI Planning"),
+                    kpis=kpis if kpis else [],
+                    charts=charts if charts else [],
+                    tables=tables if tables else [],
+                    narrative_goals=data.get("narrative_goals", ["Report generated using AI planning"]),
+                    template=data.get("template"),
+                    description=data.get("description", "Report generated from AI planning with fallback handling")
+                )
+                
+                return fallback_spec
             
         except Exception as e:
             logger.error(f"Error parsing AI response: {e}")
